@@ -1,0 +1,12 @@
+See -- 
+
+http://trac.edgewall.org/ticket/1132
+http://trac.edgewall.org/wiki/TracDev/Proposals/WikiStorage
+http://trac.edgewall.org/wiki/GenericTrac#History
+
+Code --
+
+trac/wiki/model.py -- all of it
+trac/wiki/api.py:WikiSystem -- basically .pages, .get_pages (currently existing pages)
+trac/wiki/web_ui.py -- get_timeline_events, get_search_results
+trac/wiki/admin.py -- trac-admin commands (not so interesting...)

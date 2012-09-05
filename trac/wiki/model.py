@@ -26,8 +26,99 @@ from trac.util.datefmt import from_utimestamp, to_utimestamp, utc
 from trac.util.translation import _
 from trac.wiki.api import WikiSystem, validate_page_name
 
+def WikiPage(env, name=None, version=None, db=None):
+    backend = env.config['wiki'].get("storage_backend")
+    if backend is None or backend == "TraditionalWikiStorage":
+        return TraditionalWikiPage(env, name=name, version=version, db=db)
+    elif backend == "BzrWikiStorage":
+        return BzrWikiPage(env, name=name, version=version, db=db)
 
-class WikiPage(object):
+class BzrWikiPage(object):
+
+    """Represents a wiki page (new or existing) stored in a bazaar repository."""
+
+    realm = 'wiki'
+
+    def __init__(self, env, name=None, version=None, db=None):
+        if isinstance(name, Resource):
+            self.resource = name
+            name = self.resource.id
+        else:
+            if version:
+                version = int(version) # must be a number or None
+            self.resource = Resource('wiki', name, version)
+        self.name = name
+        self.version = version
+
+        self._revisions = self._repo.revisions("%s.wiki" % self.name)
+        if self.version is not None:
+            self._revision = self._revisions[len(self._revisions) - self.version]
+        else:
+            self._revision = None
+
+    @property
+    def _repo(self):
+        from sven.bzr import BzrAccess
+        return BzrAccess('/home/egj/Code/trac/newtest/repos/default-wiki')
+
+    @property
+    def text(self):
+        return self._repo.read("%s.wiki" % self.name, rev=self._revision)
+
+    @property
+    def comment(self):
+        return 'comment'
+
+    @property
+    def author(self):
+        return 'lammy'
+
+    @property
+    def time(self):
+        from trac.util.datefmt import to_datetime
+        return to_datetime(None)
+
+    @property
+    def readonly(self):
+        return 1 or 0
+
+    @property
+    def exists(self):
+        return True or False
+
+    def delete(self, version=None, db=None):
+        """Delete one or all versions of a page.
+
+        :since 1.0: the `db` parameter is no longer needed and will be removed
+        in version 1.1.1
+        """
+
+    def save(self, author, comment, remote_addr, t=None, db=None):
+        """Save a new version of a page.
+
+        :since 1.0: the `db` parameter is no longer needed and will be removed
+        in version 1.1.1
+        """
+
+    def rename(self, new_name):
+        """Rename wiki page in-place, keeping the history intact.
+        Renaming a page this way will eventually leave dangling references
+        to the old page - which litterally doesn't exist anymore.
+        """
+
+    def get_history(self, db=None):
+        """Retrieve the edit history of a wiki page.
+
+        :since 1.0: the `db` parameter is no longer needed and will be removed
+        in version 1.1.1
+        """
+        for version, entry in enumerate(self._repo.log("%s.wiki" % self.name)):
+            entry = entry['fields']
+            yield self._revisions[version], from_utimestamp(entry['timestamp']), entry['author'], entry['message'], "fleem"
+
+
+class TraditionalWikiPage(object):
+
     """Represents a wiki page (new or existing)."""
 
     realm = 'wiki'
