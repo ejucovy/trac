@@ -171,7 +171,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
 
     # ITicketActionController methods
 
-    def get_ticket_actions(self, req, ticket):
+    def get_ticket_actions(self, perm, authname, args, ticket):
         """Returns a list of (weight, action) tuples that are valid for this
         request and this ticket."""
         # Get the list of actions that can be performed
@@ -182,7 +182,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
         # once and get really confused.
         status = ticket._old.get('status', ticket['status']) or 'new'
 
-        ticket_perm = req.perm(ticket.resource)
+        ticket_perm = perm(ticket.resource)
         allowed_actions = []
         for action_name, action_info in self.actions.items():
             oldstates = action_info['oldstates']
@@ -329,10 +329,14 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
         return (this_action['name'], tag(*control), '. '.join(hints) + ".")
 
     def get_ticket_changes(self, req, ticket, action):
+        return self.get_ticket_changes_without_request(
+            self, req.perm, req.authname, req.args, ticket, action)
+
+    def get_ticket_changes_without_request(self, perm, authname, args, ticket, action):
         this_action = self.actions[action]
 
         # Enforce permissions
-        if not self._has_perms_for_action(req, this_action, ticket.resource):
+        if not self._has_perms_for_action(perm, this_action, ticket.resource):
             # The user does not have any of the listed permissions, so we won't
             # do anything.
             return {}
@@ -349,7 +353,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             elif operation == 'del_owner':
                 updated['owner'] = ''
             elif operation == 'set_owner':
-                newowner = req.args.get('action_%s_reassign_owner' % action,
+                newowner = args.get('action_%s_reassign_owner' % action,
                                     this_action.get('set_owner', '').strip())
                 # If there was already an owner, we get a list, [new, old],
                 # but if there wasn't we just get new.
@@ -357,11 +361,11 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                     newowner = newowner[0]
                 updated['owner'] = newowner
             elif operation == 'set_owner_to_self':
-                updated['owner'] = req.authname
+                updated['owner'] = authname
             elif operation == 'del_resolution':
                 updated['resolution'] = ''
             elif operation == 'set_resolution':
-                newresolution = req.args.get('action_%s_resolve_resolution' % \
+                newresolution = args.get('action_%s_resolve_resolution' % \
                                              action,
                                 this_action.get('set_resolution', '').strip())
                 updated['resolution'] = newresolution
@@ -369,14 +373,14 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             # leave_status is just a no-op here, so we don't look for it.
         return updated
 
-    def apply_action_side_effects(self, req, ticket, action):
+    def apply_action_side_effects(self, perm, authname, args, ticket, action):
         pass
 
-    def _has_perms_for_action(self, req, action, resource):
+    def _has_perms_for_action(self, perm, action, resource):
         required_perms = action['permissions']
         if required_perms:
             for permission in required_perms:
-                if permission in req.perm(resource):
+                if permission in perm(resource):
                     break
             else:
                 # The user does not have any of the listed permissions
@@ -409,7 +413,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                    if operation in info['operations'] and
                       ('*' in info['oldstates'] or
                        status in info['oldstates']) and
-                      self._has_perms_for_action(req, info, ticket.resource)]
+                      self._has_perms_for_action(req.perm, info, ticket.resource)]
         return actions
 
 

@@ -60,11 +60,11 @@ class ITicketActionController(Interface):
     though not restricted to it.
     """
 
-    def get_ticket_actions(req, ticket):
+    def get_ticket_actions(perm, authname, args, ticket):
         """Return an iterable of `(weight, action)` tuples corresponding to
         the actions that are contributed by this component.
         That list may vary given the current state of the ticket and the
-        actual request parameter.
+        current permission, authname, and args parameters.
 
         `action` is a key used to identify that particular action.
         (note that 'history' and 'diff' are reserved and should not be used
@@ -99,11 +99,15 @@ class ITicketActionController(Interface):
         `"action_%s" % action`.  Any `id`s used in `control` need to be made
         unique.  The method used in the default ITicketActionController is to
         use `"action_%s_something" % action`.
+
+        This method will only be called from contexts that have an HTTP request,
+        so it should not contain any logic that absolutely must run under all
+        circumstances.  Use `get_ticket_changes` for that.
         """
 
     def get_ticket_changes(req, ticket, action):
         """Return a dictionary of ticket field changes.
-
+        
         This method must not have any side-effects because it will also
         be called in preview mode (`req.args['preview']` will be set, then).
         See `apply_action_side_effects` for that. If the latter indeed triggers
@@ -111,11 +115,22 @@ class ITicketActionController(Interface):
         (`trac.web.chrome.add_warning(req, reason)`) when this method is called
         in preview mode.
 
+        This method will only be called from contexts that have an HTTP request,
+        so it should not contain any logic that absolutely must run under all
+        circumstances.  Use `get_ticket_changes` for that.
+        """
+
+    def get_ticket_changes_without_request(perm, authname, args, ticket, action):
+        """Return a dictionary of ticket field changes.
+
+        This method should not have any side-effects because it may also
+        be called in preview mode (`args['preview'] will be set, then).
+
         This method will only be called if the controller claimed to handle
         the given `action` in the call to `get_ticket_actions`.
         """
 
-    def apply_action_side_effects(req, ticket, action):
+    def apply_action_side_effects(perm, authname, args, ticket, action):
         """Perform side effects once all changes have been made to the ticket.
 
         Multiple controllers might be involved, so the apply side-effects

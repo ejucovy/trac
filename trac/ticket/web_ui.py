@@ -447,7 +447,7 @@ class TicketModule(Component):
         """Generator yielding the controllers handling the given `action`"""
         for controller in TicketSystem(self.env).action_controllers:
             actions = [a for w, a in
-                       controller.get_ticket_actions(req, ticket) or []]
+                       controller.get_ticket_actions(req.perm, req.authname, req.args, ticket) or []]
             if action in actions:
                 yield controller
 
@@ -1391,7 +1391,7 @@ class TicketModule(Component):
         for controller in controllers:
             self.log.debug("Side effect for %s" %
                            controller.__class__.__name__)
-            controller.apply_action_side_effects(req, ticket, action)
+            controller.apply_action_side_effects(req.perm, req.authname, req.args, ticket, action)
 
         req.redirect(req.href.ticket(ticket.id) + fragment)
 
