@@ -209,13 +209,22 @@ In [changeset:"%s"]:
     def _update_tickets(self, tickets, changeset, comment, date):
         """Update the tickets with the given comment."""
         perm = PermissionCache(self.env, changeset.author)
-        for tkt_id, cmds in tickets.iteritems():
+        controllers = list(TicketSystem(self.env).action_controllers)
+
+        for tkt_id, actions, action_args in tickets.iteritems():
             try:
                 self.log.debug("Updating ticket #%d", tkt_id)
                 with self.env.db_transaction as db:
                     ticket = Ticket(self.env, tkt_id, db)
-                    for cmd in cmds:
-                        cmd(ticket, changeset, perm(ticket.resource))
+                    field_changes = {}
+                    for action, args in zip(actions, action_args):
+                        action_args['comment'].setdefault(comment)
+                        for controller in controllers:
+                            action_changes = controller.get_ticket_changes_without_request(
+                                perm, changeset.author, action_args)
+                            for key in action_changes.keys():
+                                field_changes[key] = action_changes[key]
+                    
                     ticket.save_changes(changeset.author, comment, date, db)
                 self._notify(ticket, date)
             except Exception, e:
@@ -254,6 +263,8 @@ In [changeset:"%s"]:
 
     def cmd_refs(self, ticket, changeset, perm):
         pass
+
+    def get_action_controllers(self, 
 
 
 class CommitTicketReferenceMacro(WikiMacroBase):
