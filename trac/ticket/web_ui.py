@@ -59,6 +59,7 @@ from trac.web.chrome import (
     add_stylesheet, add_warning, auth_link, prevnext_nav, web_context
 )
 from trac.wiki.formatter import format_to, format_to_html, format_to_oneliner
+import time
 
 
 class InvalidTicket(TracError):
@@ -203,6 +204,7 @@ class TicketModule(Component):
         if not 'ticket' in filters:
             return
         ticket_realm = Resource('ticket')
+        start_time = time.time()
         with self.env.db_query as db:
             sql, args = search_to_sql(db, ['summary', 'keywords',
                                            'description', 'reporter', 'cc',
@@ -235,6 +237,9 @@ class TicketModule(Component):
                                     summary, status, resolution, type)),
                            from_utimestamp(ts), author,
                            shorten_result(desc, terms))
+
+        needed_time = time.time() - start_time
+        self.log.info("needed %s seconds for searching terms '%s'" % (needed_time, terms))
 
         # Attachments
         for result in AttachmentModule(self.env).get_search_results(
