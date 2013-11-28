@@ -29,11 +29,13 @@ import random
 import re
 import shutil
 import sys
+import struct
 import tempfile
 import time
 from urllib import quote, unquote, urlencode
 
 from .compat import any, md5, sha1, sorted
+from .datefmt import to_datetime, to_timestamp, utc
 from .text import exception_to_unicode, to_unicode, getpreferredencoding
 
 # -- req, session and web utils
@@ -255,6 +257,68 @@ def create_unique_file(path):
             path = '%s.%d%s' % (parts[0], idx, parts[1])
 
 
+def create_zipinfo(filename, mtime=None, dir=False, executable=False, symlink=False,
+                   comment=None):
+    """Create a instance of `ZipInfo`.
+
+    :param filename: file name of the entry
+    :param mtime: modified time of the entry
+    :param dir: if `True`, the entry is a directory
+    :param executable: if `True`, the entry is a executable file
+    :param symlink: if `True`, the entry is a symbolic link
+    :param comment: comment of the entry
+    """
+    from zipfile import ZipInfo, ZIP_DEFLATED, ZIP_STORED
+    zipinfo = ZipInfo()
+
+    # The general purpose bit flag 11 is used to denote
+    # UTF-8 encoding for path and comment. Only set it for
+    # non-ascii files for increased portability.
+    # See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
+    if any(ord(c) >= 128 for c in filename):
+        zipinfo.flag_bits |= 0x0800
+    zipinfo.filename = filename.encode('utf-8')
+
+    if mtime is not None:
+        mtime = to_datetime(mtime, utc)
+        zipinfo.date_time = mtime.utctimetuple()[:6]
+        # The "extended-timestamp" extra field is used for the
+        # modified time of the entry in unix time. It avoids
+        # extracting wrong modified time if non-GMT timezone.
+        # See http://www.opensource.apple.com/source/zip/zip-6/unzip/unzip
+        #     /proginfo/extra.fld
+        zipinfo.extra += struct.pack(
+            '<hhBl',
+            0x5455,                 # extended-timestamp extra block type
+            1 + 4,                  # size of this block
+            1,                      # modification time is present
+            to_timestamp(mtime))    # time of last modification
+
+    # external_attr is 4 bytes in size. The high order two
+    # bytes represent UNIX permission and file type bits,
+    # while the low order two contain MS-DOS FAT file
+    # attributes, most notably bit 4 marking directories.
+    if dir:
+        if not zipinfo.filename.endswith('/'):
+            zipinfo.filename += '/'
+        zipinfo.compress_type = ZIP_STORED
+        zipinfo.external_attr = 040755 << 16L       # permissions drwxr-xr-x
+        zipinfo.external_attr |= 0x10               # MS-DOS directory flag
+    else:
+        zipinfo.compress_type = ZIP_DEFLATED
+        zipinfo.external_attr = 0644 << 16L         # permissions -r-wr--r--
+        if executable:
+            zipinfo.external_attr |= 0755 << 16L    # -rwxr-xr-x
+        if symlink:
+            zipinfo.compress_type = ZIP_STORED
+            zipinfo.external_attr |= 0120000 << 16L # symlink file type
+
+    if comment:
+        zipinfo.comment = comment.encode('utf-8')
+
+    return zipinfo
+
+
 class NaivePopen:
     """This is a deadlock-safe version of popen that returns an object with
     errorlevel, out (a string) and err (a string).
@@ -297,6 +361,39 @@ class NaivePopen:
                 os.remove(infile)
             if capturestderr and os.path.isfile(errfile):
                 os.remove(errfile)
+
+
+def terminate(process):
+    """Python 2.5 compatibility method.
+    os.kill is not available on Windows before Python 2.7.
+    In Python 2.6 subprocess.Popen has a terminate method.
+    (It also seems to have some issues on Windows though.)
+    """
+
+    def terminate_win(process):
+        import ctypes
+        PROCESS_TERMINATE = 1
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE,
+                                                    False,
+                                                    process.pid)
+        ctypes.windll.kernel32.TerminateProcess(handle, -1)
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+    def terminate_nix(process):
+        import os
+        import signal
+        try:
+            os.kill(process.pid, signal.SIGTERM)
+        except OSError, e:
+            # If the process has already finished and has not been
+            # waited for, killing it raises an ESRCH error on Cygwin
+            import errno
+            if e.errno != errno.ESRCH:
+                raise
+
+    if sys.platform == 'win32':
+        return terminate_win(process)
+    return terminate_nix(process)
 
 
 def makedirs(path, overwrite=False):
@@ -513,7 +610,7 @@ def safe__import__(module_name):
         return __import__(module_name, globals(), locals(), [])
     except Exception, e:
         for modname in sys.modules.copy():
-            if not already_imported.has_key(modname):
+            if modname not in already_imported:
                 del(sys.modules[modname])
         raise e
 

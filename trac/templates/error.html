@@ -40,7 +40,7 @@
        $("#tbtoggle").parent().show();
 
        $("#systeminfo").append("<tr><th>jQuery</th><td>" + $().jquery + "</td></tr>");
-       $("#systeminfo").before("<p>User Agent: <tt>" + navigator.userAgent + "</tt></p>");
+       $("#systeminfo").before("<p>User Agent: <code>" + navigator.userAgent + "</code></p>");
       });
     /*]]>*/</script>
     <script type="text/javascript">/*<![CDATA[*/
@@ -72,7 +72,7 @@ ${description_en if url else description}</textarea>
         <py:when test="'TracError'">
           <h1>$title</h1>
           <py:choose test="">
-            <p py:when="istext(message)" class="message">$message</p>
+            <p py:when="not find_element(message, tag='p')" class="message">$message</p>
             <py:otherwise>$message</py:otherwise>
           </py:choose>
         </py:when>

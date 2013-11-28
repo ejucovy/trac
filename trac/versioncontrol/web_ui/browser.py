@@ -32,7 +32,7 @@ from trac.util.datefmt import http_date, to_datetime, utc
 from trac.util.html import escape, Markup
 from trac.util.text import exception_to_unicode, shorten_line
 from trac.util.translation import _, cleandoc_
-from trac.web import IRequestHandler, RequestDone
+from trac.web.api import IRequestHandler, Request, RequestDone
 from trac.web.chrome import (INavigationContributor, add_ctxtnav, add_link,
                              add_script, add_stylesheet, prevnext_nav,
                              web_context)
@@ -337,8 +337,9 @@ class BrowserModule(Component):
         rev = req.args.get('rev', '')
         if rev.lower() in ('', 'head'):
             rev = None
+        format = req.args.get('format')
         order = req.args.get('order', 'name').lower()
-        desc = req.args.has_key('desc')
+        desc = 'desc' in req.args
         xhr = req.get_header('X-Requested-With') == 'XMLHttpRequest'
 
         rm = RepositoryManager(self.env)
@@ -392,6 +393,9 @@ class BrowserModule(Component):
                                         context, all_repositories, order, desc)
         if node:
             if node.isdir:
+                if format in ('zip',): # extension point here...
+                    self._render_zip(req, context, repos, node, rev)
+                    # not reached
                 dir_data = self._render_dir(req, repos, node, rev, order, desc)
             elif node.isfile:
                 file_data = self._render_file(req, context, repos, node, rev)
@@ -620,13 +624,35 @@ class BrowserModule(Component):
                                    timerange.to_seconds(timerange.oldest)),
                 }
 
+    def _iter_nodes(self, node):
+        stack = [node]
+        while stack:
+            node = stack.pop()
+            yield node
+            if node.isdir:
+                stack.extend(sorted(node.get_entries(),
+                                    key=lambda x: x.name,
+                                    reverse=True))
+
+    def _render_zip(self, req, context, repos, root_node, rev=None):
+        if not self.is_path_downloadable(repos, root_node.path):
+            raise TracError(_("Path not available for download"))
+        req.perm(context.resource).require('FILE_VIEW')
+        root_path = root_node.path.rstrip('/')
+        if root_path:
+            archive_name = root_node.name
+        else:
+            archive_name = repos.reponame or 'repository'
+        filename = '%s-%s.zip' % (archive_name, root_node.rev)
+        render_zip(req, filename, repos, root_node, self._iter_nodes)
+
     def _render_file(self, req, context, repos, node, rev=None):
         req.perm(node.resource).require('FILE_VIEW')
 
         mimeview = Mimeview(self.env)
 
         # MIME type detection
-        content = node.get_content()
+        content = node.get_processed_content()
         chunk = content.read(CHUNK_SIZE)
         mime_type = node.content_type
         if not mime_type or mime_type == 'application/octet-stream':
@@ -639,7 +665,6 @@ class BrowserModule(Component):
             req.send_response(200)
             req.send_header('Content-Type',
                             'text/plain' if format == 'txt' else mime_type)
-            req.send_header('Content-Length', node.content_length)
             req.send_header('Last-Modified', http_date(node.last_modified))
             if rev is None:
                 req.send_header('Pragma', 'no-cache')
@@ -652,11 +677,12 @@ class BrowserModule(Component):
                 req.send_header('Content-Disposition', 'attachment')
             req.end_headers()
 
-            while 1:
-                if not chunk:
-                    raise RequestDone
-                req.write(chunk)
-                chunk = content.read(CHUNK_SIZE)
+            def chunks():
+                c = chunk
+                while c:
+                    yield c
+                    c = content.read(CHUNK_SIZE)
+            raise RequestDone(chunks())
         else:
             # The changeset corresponding to the last change on `node`
             # is more interesting than the `rev` changeset.
@@ -678,7 +704,7 @@ class BrowserModule(Component):
             self.log.debug("Rendering preview of node %s@%s with mime-type %s"
                            % (node.name, str(rev), mime_type))
 
-            del content # the remainder of that content is not needed
+            content = None # the remainder of that content is not needed
 
             add_stylesheet(req, 'common/css/code.css')
 
@@ -686,7 +712,8 @@ class BrowserModule(Component):
             annotate = req.args.get('annotate')
             if annotate:
                 annotations.insert(0, annotate)
-            preview_data = mimeview.preview_data(context, node.get_content(),
+            preview_data = mimeview.preview_data(context,
+                                                 node.get_processed_content(),
                                                  node.get_content_length(),
                                                  mime_type, node.created_path,
                                                  raw_href,
@@ -704,17 +731,18 @@ class BrowserModule(Component):
         if node is not None and node.isfile:
             return href.export(rev or 'HEAD', repos.reponame or None,
                                node.path)
-        path = npath = '' if node is None else node.path.strip('/')
-        if repos.reponame:
-            path = (repos.reponame + '/' + npath).rstrip('/')
-        if any(fnmatchcase(path, p.strip('/'))
-               for p in self.downloadable_paths):
-            return href.changeset(rev or repos.youngest_rev,
-                                  repos.reponame or None, npath,
-                                  old=rev, old_path=repos.reponame or '/',
-                                  format='zip')
+        path = '' if node is None else node.path.strip('/')
+        if self.is_path_downloadable(repos, path):
+            return href.browser(repos.reponame or None, path,
+                                rev=rev or repos.youngest_rev, format='zip')
 
     # public methods
+
+    def is_path_downloadable(self, repos, path):
+        if repos.reponame:
+            path = repos.reponame + '/' + path
+        return any(fnmatchcase(path, dp.strip('/'))
+                   for dp in self.downloadable_paths)
 
     def render_properties(self, mode, context, props):
         """Prepare rendering of a collection of properties."""

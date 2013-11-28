@@ -266,7 +266,7 @@ class EnvironmentStub(Environment):
         if enable is not None:
             self.config.set('components', 'trac.*', 'disabled')
         else:
-            self.config.set('components', 'tracopt.versioncontrol.svn.*',
+            self.config.set('components', 'tracopt.versioncontrol.*',
                             'enabled')
         for name_or_class in enable or ():
             config_key = self._component_name(name_or_class)
@@ -415,6 +415,7 @@ def suite():
     import trac.admin.tests
     import trac.db.tests
     import trac.mimeview.tests
+    import trac.timeline.tests
     import trac.ticket.tests
     import trac.util.tests
     import trac.versioncontrol.tests
@@ -428,12 +429,11 @@ def suite():
 
     suite = unittest.TestSuite()
     suite.addTest(trac.tests.basicSuite())
-    if INCLUDE_FUNCTIONAL_TESTS:
-        suite.addTest(trac.tests.functionalSuite())
     suite.addTest(trac.admin.tests.suite())
     suite.addTest(trac.db.tests.suite())
     suite.addTest(trac.mimeview.tests.suite())
     suite.addTest(trac.ticket.tests.suite())
+    suite.addTest(trac.timeline.tests.suite())
     suite.addTest(trac.util.tests.suite())
     suite.addTest(trac.versioncontrol.tests.suite())
     suite.addTest(trac.versioncontrol.web_ui.tests.suite())
@@ -444,6 +444,8 @@ def suite():
     suite.addTest(tracopt.versioncontrol.git.tests.suite())
     suite.addTest(tracopt.versioncontrol.svn.tests.suite())
     suite.addTest(doctest.DocTestSuite(sys.modules[__name__]))
+    if INCLUDE_FUNCTIONAL_TESTS:
+        suite.addTest(trac.tests.functionalSuite())
 
     return suite
 

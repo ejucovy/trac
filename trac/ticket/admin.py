@@ -40,16 +40,14 @@ class TicketAdminPanel(Component):
     #            and don't use it whenever using them as field names (after
     #            a call to `.lower()`)
 
-
     # IAdminPanelProvider methods
 
     def get_admin_panels(self, req):
-        if 'TICKET_ADMIN' in req.perm:
+        if 'TICKET_ADMIN' in req.perm('admin', 'ticket/' + self._type):
             yield ('ticket', _('Ticket System'), self._type,
                    gettext(self._label[1]))
 
     def render_admin_panel(self, req, cat, page, version):
-        req.perm.require('TICKET_ADMIN')
         # Trap AssertionErrors and convert them to TracErrors
         try:
             return self._render_admin_panel(req, cat, page, version)
@@ -147,7 +145,7 @@ class ComponentAdminPanel(TicketAdminPanel):
                         req.redirect(req.href.admin(cat, page))
 
             data = {'view': 'list',
-                    'components': model.Component.select(self.env),
+                    'components': list(model.Component.select(self.env)),
                     'default': default}
 
         if self.config.getbool('ticket', 'restrict_owner'):
@@ -170,7 +168,7 @@ class ComponentAdminPanel(TicketAdminPanel):
         yield ('component list', '',
                'Show available components',
                None, self._do_list)
-        yield ('component add', '<name> <owner>',
+        yield ('component add', '<name> [owner]',
                'Add a new component',
                self._complete_add, self._do_add)
         yield ('component rename', '<name> <newname>',
@@ -209,7 +207,7 @@ class ComponentAdminPanel(TicketAdminPanel):
                      for c in model.Component.select(self.env)],
                     [_('Name'), _('Owner')])
 
-    def _do_add(self, name, owner):
+    def _do_add(self, name, owner=None):
         component = model.Component(self.env)
         component.name = name
         component.owner = owner
@@ -237,21 +235,19 @@ class MilestoneAdminPanel(TicketAdminPanel):
     # IAdminPanelProvider methods
 
     def get_admin_panels(self, req):
-        if 'MILESTONE_VIEW' in req.perm:
+        if 'MILESTONE_VIEW' in req.perm('admin', 'ticket/' + self._type):
             return TicketAdminPanel.get_admin_panels(self, req)
-        return iter([])
 
     # TicketAdminPanel methods
 
     def _render_admin_panel(self, req, cat, page, milestone):
-        req.perm.require('MILESTONE_VIEW')
-
+        perm = req.perm('admin', 'ticket/' + self._type)
         # Detail view?
         if milestone:
             mil = model.Milestone(self.env, milestone)
             if req.method == 'POST':
                 if req.args.get('save'):
-                    req.perm.require('MILESTONE_MODIFY')
+                    perm.require('MILESTONE_MODIFY')
                     mil.name = name = req.args.get('name')
                     mil.due = mil.completed = None
                     due = req.args.get('duedate', '')
@@ -268,7 +264,7 @@ class MilestoneAdminPanel(TicketAdminPanel):
                                             _('Invalid Completion Date'))
                     mil.description = req.args.get('description', '')
                     try:
-                        mil.update()
+                        mil.update(author=req.authname)
                     except self.env.db_exc.IntegrityError:
                         raise TracError(_('The milestone "%(name)s" already '
                                           'exists.', name=name))
@@ -281,11 +277,13 @@ class MilestoneAdminPanel(TicketAdminPanel):
             data = {'view': 'detail', 'milestone': mil}
 
         else:
-            default = self.config.get('ticket', 'default_milestone')
+            ticket_default = self.config.get('ticket', 'default_milestone')
+            retarget_default = self.config.get('milestone',
+                                               'default_retarget_to')
             if req.method == 'POST':
                 # Add Milestone
                 if req.args.get('add') and req.args.get('name'):
-                    req.perm.require('MILESTONE_CREATE')
+                    perm.require('MILESTONE_CREATE')
                     name = req.args.get('name')
                     try:
                         mil = model.Milestone(self.env, name=name)
@@ -308,7 +306,7 @@ class MilestoneAdminPanel(TicketAdminPanel):
 
                 # Remove milestone
                 elif req.args.get('remove'):
-                    req.perm.require('MILESTONE_DELETE')
+                    perm.require('MILESTONE_DELETE')
                     sel = req.args.get('sel')
                     if not sel:
                         raise TracError(_('No milestone selected'))
@@ -324,12 +322,32 @@ class MilestoneAdminPanel(TicketAdminPanel):
 
                 # Set default milestone
                 elif req.args.get('apply'):
-                    name = req.args.get('default')
-                    if name and name != default:
-                        self.log.info("Setting default milestone to %s", name)
+                    save = False
+                    name = req.args.get('ticket_default')
+                    if name and name != ticket_default:
+                        self.log.info("Setting default ticket "
+                                      "milestone to %s", name)
                         self.config.set('ticket', 'default_milestone', name)
+                        save = True
+                    retarget = req.args.get('retarget_default')
+                    if retarget and retarget != retarget_default:
+                        self.log.info("Setting default retargeting "
+                                      "milestone to %s", retarget)
+                        self.config.set('milestone', 'default_retarget_to',
+                                        retarget)
+                        save = True
+                    if save:
                         _save_config(self.config, req, self.log)
                         req.redirect(req.href.admin(cat, page))
+
+                # Clear defaults
+                elif req.args.get('clear'):
+                    self.log.info("Clearing default ticket milestone "
+                                  "and default retarget milestone")
+                    self.config.set('ticket', 'default_milestone', '')
+                    self.config.set('milestone', 'default_retarget_to', '')
+                    _save_config(self.config, req, self.log)
+                    req.redirect(req.href.admin(cat, page))
 
             # Get ticket count
             milestones = [
@@ -340,7 +358,8 @@ class MilestoneAdminPanel(TicketAdminPanel):
 
             data = {'view': 'list',
                     'milestones': milestones,
-                    'default': default}
+                    'ticket_default': ticket_default,
+                    'retarget_default': retarget_default}
 
         Chrome(self.env).add_jquery_ui(req)
 
@@ -408,7 +427,7 @@ class MilestoneAdminPanel(TicketAdminPanel):
     def _do_rename(self, name, newname):
         milestone = model.Milestone(self.env, name)
         milestone.name = newname
-        milestone.update()
+        milestone.update(author=getuser())
 
     def _do_due(self, name, due):
         milestone = model.Milestone(self.env, name)
@@ -509,8 +528,15 @@ class VersionAdminPanel(TicketAdminPanel):
                         _save_config(self.config, req, self.log)
                         req.redirect(req.href.admin(cat, page))
 
+                # Clear default version
+                elif req.args.get('clear'):
+                    self.log.info("Clearing default version")
+                    self.config.set('ticket', 'default_version', '')
+                    _save_config(self.config, req, self.log)
+                    req.redirect(req.href.admin(cat, page))
+
             data = {'view': 'list',
-                    'versions': model.Version.select(self.env),
+                    'versions': list(model.Version.select(self.env)),
                     'default': default}
 
         Chrome(self.env).add_jquery_ui(req)

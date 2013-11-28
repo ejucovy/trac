@@ -308,7 +308,7 @@ class TicketModule(Component):
                     FROM ticket_change tc
                         INNER JOIN ticket t ON t.id = tc.ticket
                             AND tc.time>=%s AND tc.time<=%s
-                    ORDER BY tc.time
+                    ORDER BY tc.time, tc.ticket
                     """ % (ts_start, ts_stop)):
                 if not (oldvalue or newvalue):
                     # ignore empty change corresponding to custom field
@@ -617,7 +617,7 @@ class TicketModule(Component):
                                  "in your %(tracini)s.",
                                  section=tag.pre('[ticket]', tag.br(),
                                                  'workflow = ...'),
-                                 tracini=tag.tt('trac.ini')))
+                                 tracini=tag.code('trac.ini')))
 
             # Apply changes made by the workflow
             self._apply_ticket_changes(ticket, field_changes)

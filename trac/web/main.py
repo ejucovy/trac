@@ -306,7 +306,7 @@ class RequestDispatcher(Component):
         If the the user does not have a `trac_form_token` cookie a new
         one is generated.
         """
-        if req.incookie.has_key('trac_form_token'):
+        if 'trac_form_token' in req.incookie:
             return req.incookie['trac_form_token'].value
         else:
             req.outcookie['trac_form_token'] = hex_entropy(24)
@@ -487,7 +487,7 @@ def _dispatch_request(req, env, env_error):
 
     # fixup env.abs_href if `[trac] base_url` was not specified
     if env and not env.abs_href.base:
-        env._abs_href = req.abs_href
+        env.abs_href = req.abs_href
 
     try:
         if not env and env_error:
@@ -495,9 +495,9 @@ def _dispatch_request(req, env, env_error):
         try:
             dispatcher = RequestDispatcher(env)
             dispatcher.dispatch(req)
-        except RequestDone:
-            pass
-        resp = req._response or []
+        except RequestDone, req_done:
+            resp = req_done.iterable
+        resp = resp or req._response or []
     except HTTPException, e:
         _send_user_error(req, env, e)
     except Exception, e:

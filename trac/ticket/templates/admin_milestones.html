@@ -4,28 +4,36 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/"
-      xmlns:i18n="http://genshi.edgewall.org/i18n">
+      xmlns:i18n="http://genshi.edgewall.org/i18n"
+      py:with="perm = req.perm('admin', 'ticket/milestones');
+               can_create = 'MILESTONE_CREATE' in perm;
+               can_modify = 'MILESTONE_MODIFY' in perm;
+               can_remove = 'MILESTONE_DELETE' in perm">
   <xi:include href="admin.html" />
   <head>
     <title>Milestones</title>
-    <script type="text/javascript">/*<![CDATA[*/
+    <script type="text/javascript"
+            py:if="view == 'detail' and can_modify or
+                   view == 'list' and can_create">
       jQuery(document).ready(function($) {
         $("#duedate").datetimepicker();
         $("#completeddate").datetimepicker();
       });
-    /*]]>*/</script>
+    </script>
   </head>
 
   <body>
-    <h2>Manage Milestones</h2>
+    <h2>Manage Milestones <span py:if="view == 'list'" class="trac-count">(${len(milestones)})</span></h2>
 
     <py:choose test="view">
       <form py:when="'detail'" class="mod" method="post" id="modifymilestone" action=""
-            py:with="readonly = 'MILESTONE_MODIFY' not in req.perm or None">
+            py:with="disabled = 'disabled' if not can_modify else None;
+                     readonly = 'readonly' if not can_modify else None">
         <fieldset>
           <legend>Modify Milestone:</legend>
           <div class="field">
-            <label>Name:<br /> <input type="text" name="name" value="$milestone.name" readonly="${readonly}"/></label>
+            <label>Name:<br /> <input type="text" name="name" class="trac-focus"
+                                      value="$milestone.name" readonly="${readonly}" /></label>
           </div>
           <div class="field">
             <label>Due:<br />
@@ -38,14 +46,14 @@
           <div class="field">
             <label>
               <input type="checkbox" id="completed" name="completed"
-                     checked="${milestone.completed or None}" disabled="${readonly}"/>
+                     checked="${milestone.completed or None}" disabled="${disabled}"/>
               Completed:<br />
             </label>
             <label>
               <input type="text" id="completeddate" name="completeddate"
                      size="${len(datetime_hint)}"
                      value="${format_datetime(milestone.completed)}" readonly="${readonly}"
-                     title="${_('Format: %(datehint)s', datehint=datetime_hint)}"/>
+                     title="${_('Format: %(datehint)s', datehint=datetime_hint)}" />
               <span class="hint" i18n:msg="datehint">Format: $datetime_hint</span>
             </label>
             <script type="text/javascript">
@@ -71,14 +79,14 @@ ${milestone.description}</textarea>
             </fieldset>
           </div>
           <div class="buttons">
+            <input type="submit" name="save" value="${_('Save')}" disabled="${disabled}"/>
             <input type="submit" name="cancel" value="${_('Cancel')}"/>
-            <input type="submit" name="save" value="${_('Save')}" disabled="${readonly}"/>
           </div>
         </fieldset>
       </form>
 
       <py:otherwise>
-        <form class="addnew" id="addmilestone" method="post" action="" py:if="'MILESTONE_CREATE' in req.perm">
+        <form class="addnew" id="addmilestone" method="post" action="" py:if="can_create">
           <fieldset>
             <legend>Add Milestone:</legend>
             <div class="field">
@@ -99,12 +107,14 @@ ${milestone.description}</textarea>
         </form>
 
         <py:choose>
-          <form id="milestone_table" method="post" action=""
-                py:when="milestones" py:with="can_remove = 'MILESTONE_DELETE' in req.perm">
+          <form id="milestone_table" method="post" action="" py:when="milestones">
             <table class="listing" id="millist">
               <thead>
                 <tr><th class="sel" py:if="can_remove">&nbsp;</th>
-                  <th>Name</th><th>Due</th><th>Completed</th><th>Default</th><th>Tickets</th>
+                  <th>Name</th><th>Due</th><th>Completed</th>
+                  <th title="Default milestone for new tickets">Default</th>
+                  <th title="Default milestone for retargeting tickets">Retarget</th>
+                  <th title="Number of tickets associated with milestone">Tickets</th>
                 </tr>
               </thead>
               <tbody><tr py:for="(milestone, ticket_count) in milestones">
@@ -121,15 +131,21 @@ ${milestone.description}</textarea>
                   ${format_datetime(milestone.completed)}
                 </py:if></td>
                 <td class="default">
-                  <input type="radio" name="default" value="$milestone.name"
-                         checked="${milestone.name==default or None}" />
+                  <input type="radio" name="ticket_default" value="$milestone.name"
+                         checked="${milestone.name==ticket_default or None}" />
+                </td>
+                <td class="default">
+                  <input type="radio" name="retarget_default" value="$milestone.name"
+                         checked="${milestone.name==retarget_default or None}" />
                 </td>
                 <td class="num">${ticket_count}</td>
               </tr></tbody>
             </table>
             <div class="buttons">
-              <input type="submit" name="remove" value="${_('Remove selected items')}" py:if="can_remove" />
               <input type="submit" name="apply" value="${_('Apply changes')}" />
+              <input type="submit" name="remove" value="${_('Remove selected items')}" py:if="can_remove" />
+              <input type="submit" title="Clear default ticket milestone and default retargeting milestone"
+                     name="clear" value="${_('Clear defaults')}" />
             </div>
             <p class="help">
               You can remove all items from this list to completely hide this
@@ -137,7 +153,7 @@ ${milestone.description}</textarea>
             </p>
           </form>
 
-          <p py:otherwise="" class="hint">
+          <p py:otherwise="" class="help">
             As long as you don't add any items to the list, this field
             will remain completely hidden from the user interface.
           </p>

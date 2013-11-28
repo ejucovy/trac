@@ -477,21 +477,22 @@ class ImageMacro(WikiMacroBase):
 
     Examples:
     {{{
-        [[Image(photo.jpg)]]                           # simplest
-        [[Image(photo.jpg, 120px)]]                    # with image width size
-        [[Image(photo.jpg, right)]]                    # aligned by keyword
-        [[Image(photo.jpg, nolink)]]                   # without link to source
-        [[Image(photo.jpg, align=right)]]              # aligned by attribute
+    [[Image(photo.jpg)]]               # simplest
+    [[Image(photo.jpg, 120px)]]        # with image width size
+    [[Image(photo.jpg, right)]]        # aligned by keyword
+    [[Image(photo.jpg, nolink)]]       # without link to source
+    [[Image(photo.jpg, align=right)]]  # aligned by attribute
     }}}
 
-    You can use image from other page, other ticket or other module.
+    You can use an image from a wiki page, ticket or other module.
     {{{
-        [[Image(OtherPage:foo.bmp)]]    # if current module is wiki
-        [[Image(base/sub:bar.bmp)]]     # from hierarchical wiki page
-        [[Image(#3:baz.bmp)]]           # if in a ticket, point to #3
-        [[Image(ticket:36:boo.jpg)]]
-        [[Image(source:/images/bee.jpg)]] # straight from the repository!
-        [[Image(htdocs:foo/bar.png)]]   # image file in project htdocs dir.
+    [[Image(OtherPage:foo.bmp)]]    # from a wiki page
+    [[Image(base/sub:bar.bmp)]]     # from hierarchical wiki page
+    [[Image(#3:baz.bmp)]]           # from another ticket
+    [[Image(ticket:36:boo.jpg)]]    # from another ticket (long form)
+    [[Image(source:/img/bee.jpg)]]  # from the repository
+    [[Image(htdocs:foo/bar.png)]]   # from project htdocs dir
+    [[Image(shared:foo/bar.png)]]   # from shared htdocs dir (since 1.0.2)
     }}}
 
     ''Adapted from the Image.py macro created by Shun-ichi Goto
@@ -500,6 +501,8 @@ class ImageMacro(WikiMacroBase):
 
     def is_inline(self, content):
         return True
+
+    _split_filespec_re = re.compile(r''':(?!(?:[^"':]|[^"']:[^'"])+["'])''')
 
     def expand_macro(self, formatter, name, content):
         # args will be null if the macro is called without parenthesis.
@@ -578,7 +581,8 @@ class ImageMacro(WikiMacroBase):
                         attr[str(key)] = val # will be used as a __call__ kwd
 
         # parse filespec argument to get realm and id if contained.
-        parts = filespec.split(':')
+        parts = [i.strip('''['"]''')
+                 for i in self._split_filespec_re.split(filespec)]
         url = raw_url = desc = None
         attachment = None
         if (parts and parts[0] in ('http', 'https', 'ftp')): # absolute
@@ -625,6 +629,9 @@ class ImageMacro(WikiMacroBase):
                     id = id[1:]
                 elif id == 'htdocs':
                     raw_url = url = formatter.href.chrome('site', filename)
+                    desc = os.path.basename(filename)
+                elif id == 'shared':
+                    raw_url = url = formatter.href.chrome('shared', filename)
                     desc = os.path.basename(filename)
                 else:
                     realm = 'wiki'
@@ -761,25 +768,17 @@ class TracIniMacro(WikiMacroBase):
 
         def default_cell(option):
             default = option.default
-            if default is True:
-                default = 'true'
-            elif default is False:
-                default = 'false'
-            elif default == 0:
-                default = '0.0' if isinstance(default, float) else '0'
-            elif default:
-                default = ', '.join(to_unicode(val) for val in default) \
-                          if isinstance(default, (list, tuple)) \
-                          else to_unicode(default)
+            if default is not None and default != '':
+                return tag.td(tag.code(option.dumps(default)),
+                              class_='default')
             else:
                 return tag.td(_("(no default)"), class_='nodefault')
-            return tag.td(tag.code(default), class_='default')
 
         return tag.div(class_='tracini')(
             (tag.h3(tag.code('[%s]' % section), id='%s-section' % section),
              format_to_html(self.env, formatter.context, section_doc),
              tag.table(class_='wiki')(tag.tbody(
-                 tag.tr(tag.td(tag.tt(option.name)),
+                 tag.tr(tag.td(tag.code(option.name)),
                         tag.td(format_to_oneliner(
                             self.env, formatter.context, getdoc(option))),
                         default_cell(option))
@@ -820,7 +819,7 @@ class KnownMimeTypesMacro(WikiMacroBase):
                                  href=formatter.context.href.wiki(
                                      'WikiProcessors'))))),
                 tag.tbody(
-                    tag.tr(tag.th(tag.tt(mime_type),
+                    tag.tr(tag.th(tag.code(mime_type),
                                   style="text-align: left"),
                            tag.td(tag.code(
                                ' '.join(sorted(mime_types[mime_type])))))

@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
+#
+# Copyright (C) 2005-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
 
-import os.path
+import os
 import shutil
 from StringIO import StringIO
 import tempfile
@@ -43,8 +54,7 @@ class AttachmentTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = os.path.join(tempfile.gettempdir(), 'trac-tempenv')
-        os.mkdir(self.env.path)
+        self.env.path = tempfile.mkdtemp(prefix='trac-tempenv-')
         self.attachments_dir = os.path.join(self.env.path, 'files',
                                             'attachments')
         self.env.config.set('trac', 'permission_policies',
@@ -143,7 +153,7 @@ class AttachmentTestCase(unittest.TestCase):
                                       hashes['42'][0:3], hashes['42'],
                                       hashes['foo.2.txt'] + '.txt'),
                          attachment.path)
-        self.assert_(os.path.exists(attachment.path))
+        self.assertTrue(os.path.exists(attachment.path))
 
     def test_insert_outside_attachments_dir(self):
         attachment = Attachment(self.env, '../../../../../sth/private', 42)
@@ -162,8 +172,8 @@ class AttachmentTestCase(unittest.TestCase):
         attachment1.delete()
         attachment2.delete()
 
-        assert not os.path.exists(attachment1.path)
-        assert not os.path.exists(attachment2.path)
+        self.assertFalse(os.path.exists(attachment1.path))
+        self.assertFalse(os.path.exists(attachment2.path))
 
         attachments = Attachment.select(self.env, 'wiki', 'SomePage')
         self.assertEqual(0, len(list(attachments)))
@@ -190,7 +200,7 @@ class AttachmentTestCase(unittest.TestCase):
         self.assertEqual(2, len(list(attachments)))
         attachments = Attachment.select(self.env, 'ticket', 123)
         self.assertEqual(0, len(list(attachments)))
-        assert os.path.exists(path1) and os.path.exists(attachment2.path)
+        self.assertTrue(os.path.exists(path1) and os.path.exists(attachment2.path))
 
         attachment1.reparent('ticket', 123)
         self.assertEqual('ticket', attachment1.parent_realm)
@@ -202,19 +212,19 @@ class AttachmentTestCase(unittest.TestCase):
         self.assertEqual(1, len(list(attachments)))
         attachments = Attachment.select(self.env, 'ticket', 123)
         self.assertEqual(1, len(list(attachments)))
-        assert not os.path.exists(path1) and os.path.exists(attachment1.path)
-        assert os.path.exists(attachment2.path)
+        self.assertFalse(os.path.exists(path1) and os.path.exists(attachment1.path))
+        self.assertTrue(os.path.exists(attachment2.path))
 
     def test_legacy_permission_on_parent(self):
         """Ensure that legacy action tests are done on parent.  As
         `ATTACHMENT_VIEW` maps to `TICKET_VIEW`, the `TICKET_VIEW` is tested
         against the ticket's resource."""
         attachment = Attachment(self.env, 'ticket', 42)
-        self.assert_('ATTACHMENT_VIEW' in self.perm(attachment.resource))
+        self.assertTrue('ATTACHMENT_VIEW' in self.perm(attachment.resource))
 
     def test_resource_doesnt_exist(self):
         r = Resource('wiki', 'WikiStart').child('attachment', 'file.txt')
-        self.assertEqual(False, AttachmentModule(self.env).resource_exists(r))
+        self.assertFalse(AttachmentModule(self.env).resource_exists(r))
 
     def test_resource_exists(self):
         att = Attachment(self.env, 'wiki', 'WikiStart')

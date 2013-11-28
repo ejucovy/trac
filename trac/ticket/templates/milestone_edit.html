@@ -26,13 +26,14 @@
           var retarget = $("#retarget");
           retarget.enable(checked);
           $("#target").enable(checked && retarget.checked());
+          $("#retarget-comment").enable(checked && retarget.checked());
         }
         $("#completed").click(updateCompletedDate);
         updateCompletedDate();
         $("#retarget").click(function(){
           $("#target").enable(this.checked);
+          $("#retarget-comment").enable(this.checked);
         });
-        $("#name").get(0).focus()
         $("#duedate").datetimepicker();
         $("#completeddate").datetimepicker();
       });
@@ -51,7 +52,8 @@
           <input type="hidden" name="id" value="${milestone.name}" />
           <input type="hidden" name="action" value="edit" />
           <label>Name of the milestone:<br />
-            <input type="text" id="name" name="name" size="32" value="${milestone.name or req.args.get('name')}" />
+            <input type="text" id="name" name="name" class="trac-focus" size="32"
+                   value="${milestone.name or req.args.get('name')}" />
           </label>
         </div>
         <fieldset>
@@ -79,8 +81,8 @@
                      title="${_('Format: %(datehint)s', datehint=datetime_hint)}" />
               <em i18n:msg="datehint">Format: ${datetime_hint}</em>
             </label>
-            <py:if test="milestone_groups">
-              <br/>
+            <br/>
+            <py:if test="num_tickets != 0">
               <input type="checkbox" id="retarget" name="retarget" checked="${not milestone.completed or None}" />
               <label for="retarget">Retarget associated open tickets to milestone:</label>
               <select id="target" name="target">
@@ -88,10 +90,20 @@
                 <optgroup py:for="(label, milestones) in milestone_groups"
                           py:if="milestones" label="${label}">
                   <option py:for="milestone in milestones"
+                          selected="${retarget_to == milestone.name or None}"
                           value="${milestone.name}" py:content="milestone.name"></option>
                 </optgroup>
               </select>
+              <br/>
+              <label for="retarget-comment">Comment:</label>
+              <!--! Don't translate ticket comment (comment:40:ticket:5658) -->
+              <input type="text" id="retarget-comment" name="comment" size="40"
+                     value="Ticket retargeted after milestone closed" />
             </py:if>
+            <br/>
+            <span py:if="num_tickets == 0" class="hint">
+              There are no tickets associated with this milestone.
+            </span>
           </div>
         </fieldset>
         <div class="field">
@@ -103,8 +115,10 @@ ${milestone.description}</textarea></p>
           </fieldset>
         </div>
         <div class="buttons" py:choose="milestone.exists">
-          <input py:when="True" type="submit" value="${_('Submit changes')}" />
-          <input py:otherwise="" type="submit" value="${_('Add milestone')}" />
+          <input py:when="True" type="submit" name="save"
+                 value="${_('Submit changes')}" />
+          <input py:otherwise="" type="submit" name="add"
+                 value="${_('Add milestone')}" />
           <input type="submit" name="cancel" value="${_('Cancel')}" />
         </div>
       </form>

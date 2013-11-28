@@ -1,10 +1,25 @@
 # -*- coding: utf-8 -*-
+#
+# Copyright (C) 2006-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
 
 import unittest
+from datetime import datetime
 
-from trac.ticket.model import Ticket
-from trac.ticket.roadmap import Milestone
+from trac.ticket.query import QueryModule
+from trac.ticket.report import ReportModule
+from trac.ticket.roadmap import RoadmapModule
+from trac.ticket.model import Milestone, Ticket
 from trac.wiki.tests import formatter
+
 
 TICKET_TEST_CASES = u"""
 ============================== ticket: link resolver
@@ -127,7 +142,7 @@ REPORT_TEST_CASES = u"""
 ------------------------------
 <p>
 <a class="report" href="/report/1">{1}</a>, <a class="report" href="/report/2">{2}</a>
-<a class="report" href="/report/12">{12}</a>, {abc}
+<a class="missing report" title="report does not exist">{12}</a>, {abc}
 </p>
 ------------------------------
 ============================== escaping the above
@@ -175,7 +190,28 @@ trac:report:1
 """ # '
 
 def report_setup(tc):
-    pass # TBD
+    def create_report(tc, id):
+        tc.env.db_transaction("""
+            INSERT INTO report (id,title,query,description)
+            VALUES (%s,%s,'SELECT 1','')""", (id, 'Report %s' % id))
+    create_report(tc, 1)
+    create_report(tc, 2)
+
+
+
+try:
+    import babel
+except ImportError:
+    babel = None
+from trac.util.datefmt import pretty_timedelta, utc
+dt_past = datetime(2013, 11, 01, 11, 59, 58, 0, tzinfo=utc)
+dt_future = datetime(2030, 11, 01, 11, 59, 58, 0, tzinfo=utc)
+if babel:
+    datestr_past = 'Nov 1, 2013 11:59:58 AM'
+    datestr_future = 'Nov 1, 2030 11:59:58 AM'
+else:
+    datestr_past = '11/01/13 11:59:58'
+    datestr_future = '11/01/30 11:59:58'
 
 
 MILESTONE_TEST_CASES = u"""
@@ -183,11 +219,15 @@ MILESTONE_TEST_CASES = u"""
 milestone:foo
 [milestone:boo Milestone Boo]
 [milestone:roo Milestone Roo]
+[milestone:woo Milestone Woo]
+[milestone:zoo Milestone Zoo]
 ------------------------------
 <p>
 <a class="missing milestone" href="/milestone/foo" rel="nofollow">milestone:foo</a>
-<a class="milestone" href="/milestone/boo">Milestone Boo</a>
-<a class="closed milestone" href="/milestone/roo">Milestone Roo</a>
+<a class="milestone" href="/milestone/boo" title="No date set">Milestone Boo</a>
+<a class="closed milestone" href="/milestone/roo" title="Completed %(dt_past)s ago (%(datestr_past)s)">Milestone Roo</a>
+<a class="milestone" href="/milestone/woo" title="Due in %(dt_future)s (%(datestr_future)s)">Milestone Woo</a>
+<a class="milestone" href="/milestone/zoo" title="%(dt_past)s late (%(datestr_past)s)">Milestone Zoo</a>
 </p>
 ------------------------------
 ============================== milestone: link resolver + arguments
@@ -196,23 +236,35 @@ milestone:?action=new
 ------------------------------
 <p>
 <a class="missing milestone" href="/milestone/?action=new" rel="nofollow">milestone:?action=new</a>
-<a class="milestone" href="/milestone/boo#KnownIssues">Known Issues for 1.0</a>
+<a class="milestone" href="/milestone/boo#KnownIssues" title="No date set">Known Issues for 1.0</a>
 </p>
 ------------------------------
-""" #"
+""" % {'dt_past': pretty_timedelta(dt_past),
+       'dt_future': pretty_timedelta(dt_future),
+       'dt_past': pretty_timedelta(dt_past),
+       'datestr_past': datestr_past,
+       'datestr_future': datestr_future} #"
 
 def milestone_setup(tc):
-    from datetime import datetime
-    from trac.util.datefmt import utc
     boo = Milestone(tc.env)
     boo.name = 'boo'
     boo.completed = boo.due = None
     boo.insert()
     roo = Milestone(tc.env)
     roo.name = 'roo'
-    roo.completed = datetime.now(utc)
+    roo.completed = dt_past
     roo.due = None
     roo.insert()
+    woo = Milestone(tc.env)
+    woo.name = 'woo'
+    woo.completed = None
+    woo.due = dt_future
+    woo.insert()
+    zoo = Milestone(tc.env)
+    zoo.name = 'zoo'
+    zoo.completed = None
+    zoo.due = dt_past
+    zoo.insert()
 
 def milestone_teardown(tc):
     tc.env.reset_db()
@@ -374,25 +426,88 @@ def query2_teardown(tc):
 
 COMMENT_TEST_CASES = u"""
 ============================== comment: link resolver (deprecated)
-comment:ticket:123:2 (deprecated)
-[comment:ticket:123:2 see above] (deprecated)
-[comment:ticket:123:description see descr] (deprecated)
+comment:ticket:1:1 (deprecated)
+[comment:ticket:1:1 see above] (deprecated)
+comment:ticket:1:description (deprecated)
+[comment:ticket:1:description see descr] (deprecated)
+comment:ticket:2:1 (deprecated)
+comment:ticket:2:3 (deprecated)
+comment:ticket:3:1 (deprecated)
+comment:tiket:2:1 (deprecated)
+comment:ticket:two:1 (deprecated)
+comment:ticket:2:1a (deprecated)
+comment:ticket:2:one (deprecated)
+comment:ticket:1: (deprecated)
+comment:ticket::2 (deprecated)
+comment:ticket:: (deprecated)
 ------------------------------
 <p>
-<a href="/ticket/123#comment:2" title="Comment 2 for Ticket #123">comment:ticket:123:2</a> (deprecated)
-<a href="/ticket/123#comment:2" title="Comment 2 for Ticket #123">see above</a> (deprecated)
-<a href="/ticket/123#comment:description" title="Comment description for Ticket #123">see descr</a> (deprecated)
+<a class="new ticket" href="/ticket/1#comment:1" title="Comment 1 for Ticket #1">comment:ticket:1:1</a> (deprecated)
+<a class="new ticket" href="/ticket/1#comment:1" title="Comment 1 for Ticket #1">see above</a> (deprecated)
+<a class="new ticket" href="/ticket/1#comment:description" title="Description for Ticket #1">comment:ticket:1:description</a> (deprecated)
+<a class="new ticket" href="/ticket/1#comment:description" title="Description for Ticket #1">see descr</a> (deprecated)
+<a class="ticket" href="/ticket/2#comment:1" title="Comment 1">comment:ticket:2:1</a> (deprecated)
+<a class="missing ticket" title="ticket comment does not exist">comment:ticket:2:3</a> (deprecated)
+<a class="missing ticket" title="ticket does not exist">comment:ticket:3:1</a> (deprecated)
+comment:tiket:2:1 (deprecated)
+comment:ticket:two:1 (deprecated)
+comment:ticket:2:1a (deprecated)
+comment:ticket:2:one (deprecated)
+comment:ticket:1: (deprecated)
+comment:ticket::2 (deprecated)
+comment:ticket:: (deprecated)
 </p>
 ------------------------------
 ============================== comment: link resolver
-comment:2:ticket:123
-[comment:2:ticket:123 see above]
-[comment:description:ticket:123 see descr]
+comment:1
+[comment:1 see above]
+comment:description
+[comment:description see descr]
+comment:
+comment:one
+comment:1a
 ------------------------------
 <p>
-<a href="/ticket/123#comment:2" title="Comment 2 for Ticket #123">comment:2:ticket:123</a>
-<a href="/ticket/123#comment:2" title="Comment 2 for Ticket #123">see above</a>
-<a href="/ticket/123#comment:description" title="Comment description for Ticket #123">see descr</a>
+<a class="ticket" href="/ticket/2#comment:1" title="Comment 1">comment:1</a>
+<a class="ticket" href="/ticket/2#comment:1" title="Comment 1">see above</a>
+<a class="ticket" href="/ticket/2#comment:description" title="Description">comment:description</a>
+<a class="ticket" href="/ticket/2#comment:description" title="Description">see descr</a>
+comment:
+comment:one
+comment:1a
+</p>
+------------------------------
+============================== comment: link resolver with ticket number
+comment:1:ticket:1
+[comment:1:ticket:1 see above]
+comment:description:ticket:1
+[comment:description:ticket:1 see descr]
+comment:1:ticket:2
+comment:3:ticket:2
+comment:1:ticket:3
+comment:2:tiket:1
+comment:1:ticket:two
+comment:one:ticket:1
+comment:1a:ticket:1
+comment:ticket:1
+comment:2:ticket:
+comment::ticket:
+------------------------------
+<p>
+<a class="new ticket" href="/ticket/1#comment:1" title="Comment 1 for Ticket #1">comment:1:ticket:1</a>
+<a class="new ticket" href="/ticket/1#comment:1" title="Comment 1 for Ticket #1">see above</a>
+<a class="new ticket" href="/ticket/1#comment:description" title="Description for Ticket #1">comment:description:ticket:1</a>
+<a class="new ticket" href="/ticket/1#comment:description" title="Description for Ticket #1">see descr</a>
+<a class="ticket" href="/ticket/2#comment:1" title="Comment 1">comment:1:ticket:2</a>
+<a class="missing ticket" title="ticket comment does not exist">comment:3:ticket:2</a>
+<a class="missing ticket" title="ticket does not exist">comment:1:ticket:3</a>
+comment:2:tiket:1
+comment:1:ticket:two
+comment:one:ticket:1
+comment:1a:ticket:1
+comment:ticket:1
+comment:2:ticket:
+comment::ticket:
 </p>
 ------------------------------
 """ # "
@@ -406,6 +521,24 @@ comment:2:ticket:123
 # As it's a problem with a temp workaround, I think there's no need
 # to fix it for now.
 
+def comment_setup(tc):
+    ticket1 = Ticket(tc.env)
+    ticket1.values.update({'reporter': 'santa',
+                            'summary': 'This is the summary for ticket 1',
+                            'status': 'new'})
+    ticket1.insert()
+    ticket1.save_changes(comment='This is the comment for ticket 1')
+    ticket2 = Ticket(tc.env)
+    ticket2.values.update({'reporter': 'claws',
+                           'summary': 'This is the summary for ticket 2',
+                           'status': 'closed'})
+    ticket2.insert()
+    ticket2.save_changes(comment='This is the comment for ticket 2')
+
+def comment_teardown(tc):
+    tc.env.reset_db()
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(formatter.suite(TICKET_TEST_CASES, ticket_setup, __file__,
@@ -417,7 +550,8 @@ def suite():
                                   ticket_teardown))
     suite.addTest(formatter.suite(QUERY2_TEST_CASES, query2_setup, __file__,
                                   query2_teardown))
-    suite.addTest(formatter.suite(COMMENT_TEST_CASES, file=__file__))
+    suite.addTest(formatter.suite(COMMENT_TEST_CASES, comment_setup, __file__,
+                                  comment_teardown, ('ticket', 2)))
     return suite
 
 if __name__ == '__main__':

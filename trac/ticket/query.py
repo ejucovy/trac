@@ -34,6 +34,7 @@ from trac.resource import Resource
 from trac.ticket.api import TicketSystem
 from trac.ticket.model import Milestone, group_milestones, Ticket
 from trac.util import Ranges, as_bool
+from trac.util.compat import any
 from trac.util.datefmt import from_utimestamp, format_date_or_datetime, \
                               parse_date, to_timestamp, to_utimestamp, utc, \
                               user_time
@@ -453,14 +454,20 @@ class Query(object):
                                          if c not in custom_fields]))
         sql.append(",priority.value AS priority_value")
         for k in [db.quote(k) for k in cols if k in custom_fields]:
-            sql.append(",%s.value AS %s" % (k, k))
-        sql.append("\nFROM ticket AS t")
+            sql.append(",t.%s AS %s" % (k, k))
 
-        # Join with ticket_custom table as necessary
-        for k in [k for k in cols if k in custom_fields]:
-            qk = db.quote(k)
-            sql.append("\n  LEFT OUTER JOIN ticket_custom AS %s ON " \
-                       "(id=%s.ticket AND %s.name='%s')" % (qk, qk, qk, k))
+        # Use subquery of ticket_custom table as necessary
+        if any(k in custom_fields for k in cols):
+            sql.append('\nFROM (\n  SELECT ' +
+                       ','.join('t.%s AS %s' % (c, c)
+                                for c in cols if c not in custom_fields))
+            sql.extend(",\n  (SELECT c.value FROM ticket_custom c "
+                       "WHERE c.ticket=t.id AND c.name='%s') AS %s"
+                       % (k, db.quote(k))
+                       for k in cols if k in custom_fields)
+            sql.append("\n  FROM ticket AS t) AS t")
+        else:
+            sql.append("\nFROM ticket AS t")
 
         # Join with the enum table for proper sorting
         for col in [c for c in enum_columns
@@ -487,7 +494,7 @@ class Query(object):
             if name not in custom_fields:
                 col = 't.' + name
             else:
-                col = '%s.value' % db.quote(name)
+                col = 't.' + db.quote(name)
             value = value[len(mode) + neg:]
 
             if name in self.time_fields:
@@ -576,11 +583,11 @@ class Query(object):
                         if a == b:
                             ids.append(str(a))
                         else:
-                            id_clauses.append('id BETWEEN %s AND %s')
+                            id_clauses.append('t.id BETWEEN %s AND %s')
                             args.append(a)
                             args.append(b)
                     if ids:
-                        id_clauses.append('id IN (%s)' % (','.join(ids)))
+                        id_clauses.append('t.id IN (%s)' % (','.join(ids)))
                     if id_clauses:
                         clauses.append('%s(%s)' % ('NOT 'if neg else '',
                                                    ' OR '.join(id_clauses)))
@@ -589,7 +596,7 @@ class Query(object):
                     if k not in custom_fields:
                         col = 't.' + k
                     else:
-                        col = '%s.value' % db.quote(k)
+                        col = 't.' + db.quote(k)
                     clauses.append("COALESCE(%s,'') %sIN (%s)"
                                    % (col, 'NOT ' if neg else '',
                                       ','.join(['%s' for val in v])))
@@ -630,7 +637,7 @@ class Query(object):
             if name in enum_columns:
                 col = name + '.value'
             elif name in custom_fields:
-                col = '%s.value' % db.quote(name)
+                col = 't.' + db.quote(name)
             else:
                 col = 't.' + name
             desc = ' DESC' if desc else ''
@@ -864,7 +871,8 @@ class QueryModule(Component):
     def get_navigation_items(self, req):
         from trac.ticket.report import ReportModule
         if 'TICKET_VIEW' in req.perm and \
-                not self.env.is_component_enabled(ReportModule):
+                not (self.env.is_component_enabled(ReportModule) and
+                     'REPORT_VIEW' in req.perm):
             yield ('mainnav', 'tickets',
                    tag.a(_('View Tickets'), href=req.href.query()))
 
@@ -875,6 +883,9 @@ class QueryModule(Component):
 
     def process_request(self, req):
         req.perm.assert_permission('TICKET_VIEW')
+        report_id = req.args.get('report')
+        if report_id:
+            req.perm('report', report_id).assert_permission('REPORT_VIEW')
 
         constraints = self._get_constraints(req)
         args = req.args
@@ -929,7 +940,7 @@ class QueryModule(Component):
         max = args.get('max')
         if max is None and format in ('csv', 'tab'):
             max = 0 # unlimited unless specified explicitly
-        query = Query(self.env, req.args.get('report'),
+        query = Query(self.env, report_id,
                       constraints, cols, args.get('order'),
                       'desc' in args, args.get('group'),
                       'groupdesc' in args, 'verbose' in args,
@@ -1208,7 +1219,7 @@ class TicketQueryMacro(WikiMacroBase):
     can be included in field values by escaping them with a backslash (`\`).
 
     Groups of field constraints to be OR-ed together can be separated by a
-    litteral `or` argument.
+    literal `or` argument.
 
     In addition to filters, several other named parameters can be used
     to control how the results are presented. All of them are optional.

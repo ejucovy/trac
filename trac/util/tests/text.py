@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2003-2013 Edgewall Software
+# Copyright (C) 2006-2013 Edgewall Software
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -11,33 +11,35 @@
 # individuals. For the exact contribution history, see the revision
 # history and logs, available at http://trac.edgewall.org/log/.
 
+import os
 import unittest
 from StringIO import StringIO
 
+from trac.tests import compat
 from trac.util.text import empty, expandtabs, fix_eol, javascript_quote, \
-                           to_js_string, normalize_whitespace, to_unicode, \
-                           text_width, print_table, unicode_quote, \
-                           unicode_quote_plus, unicode_unquote, \
-                           unicode_urlencode, wrap, quote_query_string, \
-                           unicode_to_base64, unicode_from_base64, \
-                           strip_line_ws, stripws, levenshtein_distance, \
-                           sub_vars
+                           levenshtein_distance, normalize_whitespace, \
+                           print_table, quote_query_string, shorten_line, \
+                           strip_line_ws, stripws, sub_vars, text_width, \
+                           to_js_string, to_unicode, unicode_from_base64, \
+                           unicode_quote, unicode_quote_plus, \
+                           unicode_to_base64, unicode_unquote, \
+                           unicode_urlencode, wrap
 
 
 class ToUnicodeTestCase(unittest.TestCase):
     def test_explicit_charset(self):
         uc = to_unicode('\xc3\xa7', 'utf-8')
-        assert isinstance(uc, unicode)
+        self.assertIsInstance(uc, unicode)
         self.assertEquals(u'\xe7', uc)
 
     def test_explicit_charset_with_replace(self):
         uc = to_unicode('\xc3', 'utf-8')
-        assert isinstance(uc, unicode)
+        self.assertIsInstance(uc, unicode)
         self.assertEquals(u'\xc3', uc)
 
     def test_implicit_charset(self):
         uc = to_unicode('\xc3\xa7')
-        assert isinstance(uc, unicode)
+        self.assertIsInstance(uc, unicode)
         self.assertEquals(u'\xe7', uc)
 
     def test_from_exception_using_unicode_args(self):
@@ -45,26 +47,38 @@ class ToUnicodeTestCase(unittest.TestCase):
         try:
             raise ValueError, '%s is not a number.' % u
         except ValueError, e:
-            self.assertEquals(u'\uB144 is not a number.', to_unicode(e))
+            self.assertEqual(u'\uB144 is not a number.', to_unicode(e))
 
     def test_from_exception_using_str_args(self):
         u = u'Das Ger\xe4t oder die Ressource ist belegt'
         try:
             raise ValueError, u.encode('utf-8')
         except ValueError, e:
-            self.assertEquals(u, to_unicode(e))
+            self.assertEqual(u, to_unicode(e))
+
+    def test_from_windows_error(self):
+        try:
+            os.stat('non/existent/file.txt')
+        except OSError, e:
+            uc = to_unicode(e)
+            self.assertIsInstance(uc, unicode, uc)
+            self.assertTrue(uc.startswith('[Error '), uc)
+            self.assertTrue(e.strerror.decode('mbcs') in uc, uc)
+
+    if os.name != 'nt':
+        del test_from_windows_error
 
 
 class ExpandtabsTestCase(unittest.TestCase):
     def test_empty(self):
         x = expandtabs('', ignoring='\0')
-        self.assertEquals('', x)
+        self.assertEqual('', x)
     def test_ingoring(self):
         x = expandtabs('\0\t', ignoring='\0')
-        self.assertEquals('\0        ', x)
+        self.assertEqual('\0        ', x)
     def test_tabstops(self):
-        self.assertEquals('        ', expandtabs('       \t'))
-        self.assertEquals('                ', expandtabs('\t\t'))
+        self.assertEqual('        ', expandtabs('       \t'))
+        self.assertEqual('                ', expandtabs('\t\t'))
 
 
 class JavascriptQuoteTestCase(unittest.TestCase):
@@ -77,6 +91,8 @@ class JavascriptQuoteTestCase(unittest.TestCase):
                          javascript_quote('\x02\x1e'))
         self.assertEqual(r'\u0026\u003c\u003e',
                          javascript_quote('&<>'))
+        self.assertEqual(r'\u2028\u2029',
+                         javascript_quote(u'\u2028\u2029'))
 
 
 class ToJsStringTestCase(unittest.TestCase):
@@ -93,6 +109,8 @@ class ToJsStringTestCase(unittest.TestCase):
                          to_js_string(''))
         self.assertEqual('""',
                          to_js_string(None))
+        self.assertEqual(r'"\u2028\u2029"',
+                         to_js_string(u'\u2028\u2029'))
 
 
 class UnicodeQuoteTestCase(unittest.TestCase):
@@ -322,17 +340,17 @@ class UnicodeBase64TestCase(unittest.TestCase):
 
 class StripwsTestCase(unittest.TestCase):
     def test_stripws(self):
-        self.assertEquals(u'stripws',
-                          stripws(u' \u200b\t\u3000stripws \u200b\t\u2008'))
-        self.assertEquals(u'stripws \u3000\t',
-                          stripws(u'\u200b\t\u2008 stripws \u3000\t',
-                                  trailing=False))
-        self.assertEquals(u' \t\u3000stripws',
-                          stripws(u' \t\u3000stripws \u200b\t\u2008',
-                                  leading=False))
-        self.assertEquals(u' \t\u3000stripws \u200b\t\u2008',
-                          stripws(u' \t\u3000stripws \u200b\t\u2008',
-                                  leading=False, trailing=False))
+        self.assertEqual(u'stripws',
+                         stripws(u' \u200b\t\u3000stripws \u200b\t\u2008'))
+        self.assertEqual(u'stripws \u3000\t',
+                         stripws(u'\u200b\t\u2008 stripws \u3000\t',
+                                 trailing=False))
+        self.assertEqual(u' \t\u3000stripws',
+                         stripws(u' \t\u3000stripws \u200b\t\u2008',
+                                 leading=False))
+        self.assertEqual(u' \t\u3000stripws \u200b\t\u2008',
+                         stripws(u' \t\u3000stripws \u200b\t\u2008',
+                                 leading=False, trailing=False))
 
 
 class LevenshteinDistanceTestCase(unittest.TestCase):
@@ -352,6 +370,23 @@ class SubVarsTestCase(unittest.TestCase):
                          subtext)
 
 
+class ShortenLineTestCase(unittest.TestCase):
+
+    def test_less_than_maxlen(self):
+        text = '123456789'
+        self.assertEqual(text, shorten_line(text, 10))
+
+    def test_equalto_maxlen(self):
+        text = '1234567890'
+        self.assertEqual(text, shorten_line(text, 10))
+
+    def test_greater_than_maxlen(self):
+        text = 'word word word word'
+        self.assertEqual('word word ...', shorten_line(text, 15))
+        text = 'abcdefghij'
+        self.assertEqual('abcde ...', shorten_line(text, 9))
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(ToUnicodeTestCase, 'test'))
@@ -369,6 +404,7 @@ def suite():
     suite.addTest(unittest.makeSuite(StripwsTestCase, 'test'))
     suite.addTest(unittest.makeSuite(LevenshteinDistanceTestCase, 'test'))
     suite.addTest(unittest.makeSuite(SubVarsTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(ShortenLineTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':

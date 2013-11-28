@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2005-2009 Edgewall Software
+# Copyright (C) 2005-2013 Edgewall Software
 # Copyright (C) 2005-2006 Emmanuel Blot <emmanuel.blot@free.fr>
 # All rights reserved.
 #
@@ -420,7 +420,7 @@ def parse_smtp_message(msg):
                     # splits header name from value
                     (h, v) = line.split(':', 1)
                     val = decode_header(v.strip())
-                    if headers.has_key(h):
+                    if h in headers:
                         if isinstance(headers[h], tuple):
                             headers[h] += val
                         else:

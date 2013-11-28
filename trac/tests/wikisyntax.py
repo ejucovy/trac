@@ -1,4 +1,16 @@
-import os
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2006-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
+
 import shutil
 import tempfile
 import unittest
@@ -116,8 +128,7 @@ attachment:file.txt?format=raw
 def attachment_setup(tc):
     import trac.ticket.api
     import trac.wiki.api
-    tc.env.path = os.path.join(tempfile.gettempdir(), 'trac-tempenv')
-    os.mkdir(tc.env.path)
+    tc.env.path = tempfile.mkdtemp(prefix='trac-tempenv-')
     attachment = Attachment(tc.env, 'wiki', 'WikiStart')
     attachment.insert('file.txt', tempfile.TemporaryFile(), 0)
     attachment = Attachment(tc.env, 'ticket', 123)

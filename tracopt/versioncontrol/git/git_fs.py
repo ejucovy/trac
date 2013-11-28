@@ -24,7 +24,7 @@ from trac.config import BoolOption, IntOption, PathOption, Option
 from trac.core import *
 from trac.util import TracError, shorten_line
 from trac.util.datefmt import FixedOffset, to_timestamp, format_datetime
-from trac.util.text import to_unicode
+from trac.util.text import to_unicode, exception_to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     IRepositoryConnector, NoSuchChangeset, \
                                     NoSuchNode, IRepositoryProvider
@@ -336,7 +336,7 @@ class CsetPropertyRenderer(Component):
                                         "correspond to the merge itself."),
                                     class_='hint'),
                            tag.br(),
-                           tag.span(tag("Use the ", tag.tt("(diff)"),
+                           tag.span(tag("Use the ", tag.code("(diff)"),
                                         " links above to see all the changes "
                                         "relative to each parent."),
                                     class_='hint'))
@@ -381,6 +381,7 @@ class GitRepository(Repository):
                                             git_fs_encoding=git_fs_encoding) \
                             .getInstance()
         except PyGIT.GitError, e:
+            log.error(exception_to_unicode(e))
             raise TracError("%s does not appear to be a Git "
                             "repository." % path)
 
@@ -434,6 +435,9 @@ class GitRepository(Repository):
         """GitChangeset factory method"""
         return GitChangeset(self, rev)
 
+    def get_changeset_uid(self, rev):
+        return self.normalize_rev(rev)
+
     def get_changes(self, old_path, old_rev, new_path, new_rev,
                     ignore_ancestry=0):
         # TODO: handle renames/copies, ignore_ancestry
@@ -477,8 +481,8 @@ class GitRepository(Repository):
         return self.git.children(rev)
 
     def rev_older_than(self, rev1, rev2):
-        rc = self.git.rev_is_anchestor_of(rev1, rev2)
-        return rc
+        return self.git.rev_is_anchestor_of(self.normalize_rev(rev1),
+                                            self.normalize_rev(rev2))
 
     # def clear(self, youngest_rev=None):
     #     self.youngest = None

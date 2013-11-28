@@ -1,9 +1,22 @@
 # -*- coding: utf-8 -*-
+#
+# Copyright (C) 2007-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
 
 import unittest
+from genshi.builder import tag
 from genshi.input import HTML
 
-from trac.util.html import TracHTMLSanitizer
+from trac.tests import compat
+from trac.util.html import TracHTMLSanitizer, find_element
 
 
 class TracHTMLSanitizerTestCase(unittest.TestCase):
@@ -141,9 +154,22 @@ class TracHTMLSanitizerTestCase(unittest.TestCase):
         self.assertEqual('<div>XSS</div>', unicode(html | TracHTMLSanitizer()))
 
 
+class FindElementTestCase(unittest.TestCase):
+    def test_find_element_with_tag(self):
+        frag = tag(tag.p('Paragraph with a ',
+                   tag.a('link', href='http://www.edgewall.org'),
+                   ' and some ', tag.strong('strong text')))
+        self.assertIsNotNone(find_element(frag, tag='p'))
+        self.assertIsNotNone(find_element(frag, tag='a'))
+        self.assertIsNotNone(find_element(frag, tag='strong'))
+        self.assertIsNone(find_element(frag, tag='input'))
+        self.assertIsNone(find_element(frag, tag='textarea'))
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TracHTMLSanitizerTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(FindElementTestCase, 'test'))
     return suite
 
 

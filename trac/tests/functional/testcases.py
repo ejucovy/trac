@@ -1,5 +1,17 @@
-# -*- encoding: utf-8 -*-
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2008-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
+
 import os
 from trac.tests.functional import *
 
@@ -8,10 +20,11 @@ class RegressionTestRev6017(FunctionalTwillTestCaseSetup):
     def runTest(self):
         """Test for regression of the plugin reload fix in r6017"""
         # Setup the DeleteTicket plugin
-        plugin = open(os.path.join(self._testenv.command_cwd, 'sample-plugins',
-            'workflow', 'DeleteTicket.py')).read()
-        open(os.path.join(self._testenv.tracdir, 'plugins', 'DeleteTicket.py'),
-             'w').write(plugin)
+        plugin = open(os.path.join(self._testenv.command_cwd,
+                                   'sample-plugins', 'workflow',
+                                   'DeleteTicket.py')).read()
+        open(os.path.join(self._testenv.tracdir, 'plugins',
+                          'DeleteTicket.py'), 'w').write(plugin)
         env = self._testenv.get_trac_environment()
         prevconfig = env.config.get('ticket', 'workflow')
         env.config.set('ticket', 'workflow',
@@ -52,7 +65,8 @@ class RegressionTestTicket3833a(FunctionalTestCaseSetup):
         env.log.debug("RegressionTestTicket3833 debug1")
         debug1 = traclogfile.read()
         self.assertNotEqual(debug1.find("RegressionTestTicket3833 debug1"), -1,
-            'Logging off when it should have been on.\n%r' % debug1)
+                            'Logging off when it should have been on.\n%r'
+                            % debug1)
 
 
 class RegressionTestTicket3833b(FunctionalTestCaseSetup):
@@ -75,7 +89,8 @@ class RegressionTestTicket3833b(FunctionalTestCaseSetup):
         self.assertNotEqual(debug2.find("RegressionTestTicket3833 info2"), -1,
                             'Logging at info failed.\n%r' % debug2)
         self.assertEqual(debug2.find("RegressionTestTicket3833 debug2"), -1,
-            'Logging still on when it should have been off.\n%r' % debug2)
+                         'Logging still on when it should have been off.\n%r'
+                         % debug2)
 
 
 class RegressionTestTicket3833c(FunctionalTestCaseSetup):
@@ -108,7 +123,7 @@ class RegressionTestTicket3833c(FunctionalTestCaseSetup):
             fixup3 = traclogfile.read()
             message = 'Logging still off when it should have been on.\n' \
                       '%r\n%r' % (debug3, fixup3)
-        self.assert_(success, message)
+        self.assertTrue(success, message)
 
 
 class RegressionTestTicket5572(FunctionalTwillTestCaseSetup):
@@ -122,29 +137,28 @@ class RegressionTestTicket5572(FunctionalTwillTestCaseSetup):
 class RegressionTestTicket7209(FunctionalTwillTestCaseSetup):
     def runTest(self):
         """Test for regression of http://trac.edgewall.org/ticket/7209"""
-        summary = random_sentence(5)
-        ticketid = self._tester.create_ticket(summary)
+        ticketid = self._tester.create_ticket()
         self._tester.create_ticket()
         self._tester.add_comment(ticketid)
-        self._tester.attach_file_to_ticket(ticketid, tempfilename='hello.txt',
+        self._tester.attach_file_to_ticket(ticketid, filename='hello.txt',
                                            description='Preserved Descr')
         self._tester.go_to_ticket(ticketid)
         tc.find('Preserved Descr')
         # Now replace the existing attachment, and the description should come
         # through.
-        self._tester.attach_file_to_ticket(ticketid, tempfilename='hello.txt',
+        self._tester.attach_file_to_ticket(ticketid, filename='hello.txt',
                                            description='', replace=True)
         self._tester.go_to_ticket(ticketid)
         tc.find('Preserved Descr')
 
-        self._tester.attach_file_to_ticket(ticketid, tempfilename='blah.txt',
+        self._tester.attach_file_to_ticket(ticketid, filename='blah.txt',
                                            description='Second Attachment')
         self._tester.go_to_ticket(ticketid)
         tc.find('Second Attachment')
 
         # This one should get a new description when it's replaced
         # (Second->Other)
-        self._tester.attach_file_to_ticket(ticketid, tempfilename='blah.txt',
+        self._tester.attach_file_to_ticket(ticketid, filename='blah.txt',
                                            description='Other Attachment',
                                            replace=True)
         self._tester.go_to_ticket(ticketid)
@@ -159,10 +173,9 @@ class RegressionTestTicket9880(FunctionalTwillTestCaseSetup):
         Upload of a file which the browsers associates a Content-Type
         of multipart/related (e.g. an .mht file) should succeed.
         """
-        summary = random_sentence(5)
-        ticketid = self._tester.create_ticket(summary)
+        ticketid = self._tester.create_ticket()
         self._tester.create_ticket()
-        self._tester.attach_file_to_ticket(ticketid, tempfilename='hello.mht',
+        self._tester.attach_file_to_ticket(ticketid, filename='hello.mht',
                                            content_type='multipart/related',
                                            data="""
 Well, the actual content of the file doesn't matter, the problem is
@@ -196,14 +209,36 @@ class RegressionTestTicket3663(FunctionalTwillTestCaseSetup):
         tc.find('Invalid URL encoding')
 
 
-def functionalSuite():
-    suite = FunctionalTestSuite()
-    return suite
+class RegressionTestTicket6318(FunctionalTwillTestCaseSetup):
+    def runTest(self):
+        """Regression test for non-ascii usernames (#6318)
+        """
+        # first do a logout, otherwise we might end up logged in as
+        # admin again, as this is the first thing the tester does.
+        # ... but even before that we need to make sure we're coming
+        # from a valid URL, which is not the case if we're just coming
+        # from the above test! ('/wiki/\xE9t\xE9')
+        self._tester.go_to_front()
+        self._tester.logout()
+        try:
+            # also test a regular ascii user name
+            self._testenv.adduser(u'user')
+            self._tester.login(u'user')
+            self._tester.logout()
+            # now test utf-8 user name
+            self._testenv.adduser(u'joé')
+            self._tester.login(u'joé')
+            self._tester.logout()
+            # finally restore expected 'admin' login
+            self._tester.login('admin')
+        finally:
+            self._testenv.deluser(u'joé')
 
 
-def suite():
-    suite = functionalSuite()
-
+def functionalSuite(suite=None):
+    if not suite:
+        import trac.tests.functional
+        suite = trac.tests.functional.functionalSuite()
     suite.addTest(RegressionTestRev6017())
     suite.addTest(RegressionTestTicket3833a())
     suite.addTest(RegressionTestTicket3833b())
@@ -213,25 +248,9 @@ def suite():
     suite.addTest(RegressionTestTicket9880())
     suite.addTest(ErrorPageValidation())
     suite.addTest(RegressionTestTicket3663())
-
-    import trac.versioncontrol.tests
-    trac.versioncontrol.tests.functionalSuite(suite)
-    import trac.ticket.tests
-    trac.ticket.tests.functionalSuite(suite)
-    import trac.prefs.tests
-    trac.prefs.tests.functionalSuite(suite)
-    import trac.wiki.tests
-    trac.wiki.tests.functionalSuite(suite)
-    import trac.timeline.tests
-    trac.timeline.tests.functionalSuite(suite)
-    import trac.admin.tests
-    trac.admin.tests.functionalSuite(suite)
-    # The db tests should be last since the backup test occurs there.
-    import trac.db.tests
-    trac.db.tests.functionalSuite(suite)
-
+    suite.addTest(RegressionTestTicket6318())
     return suite
 
 
 if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+    unittest.main(defaultTest='functionalSuite')

@@ -1,3 +1,16 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2004-2013 Edgewall Software
+# All rights reserved.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://trac.edgewall.org/wiki/TracLicense.
+#
+# This software consists of voluntary contributions made by many
+# individuals. For the exact contribution history, see the revision
+# history and logs, available at http://trac.edgewall.org/log/.
+
 import difflib
 import os
 import re
@@ -182,7 +195,7 @@ class WikiTestCase(unittest.TestCase):
         v = v.replace('\r', '').replace(u'\u200b', '') # FIXME: keep ZWSP
         v = strip_line_ws(v, leading=False)
         try:
-            self.assertEquals(self.correct, v)
+            self.assertEqual(self.correct, v)
         except AssertionError, e:
             msg = to_unicode(e)
             match = re.match(r"u?'(.*)' != u?'(.*)'", msg)

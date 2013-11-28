@@ -11,7 +11,7 @@
   </head>
 
   <body py:with="sorted_repos = sorted(repositories.iteritems(), key=lambda item: item[0].lower())">
-    <h2>Manage Repositories</h2>
+    <h2>Manage Repositories <span py:if="view == 'list'" class="trac-count">(${len(repositories)})</span></h2>
 
     <py:def function="type_field(editable, multiline=False, selected=None)">
       <div class="field">
@@ -47,7 +47,8 @@
             and cannot be edited on this page.
           </p>
           <div class="field">
-            <label>Name:<br/><input type="text" name="name" value="$info.name" readonly="$readonly"/></label>
+            <label>Name:<br/><input type="text" name="name" class="trac-focus"
+                                    value="$info.name" readonly="$readonly" /></label>
           </div>
           <py:choose>
             <py:when test="'alias' in info">
@@ -81,8 +82,8 @@ $info.description</textarea>
             </fieldset>
           </div>
           <div class="buttons">
-            <input type="submit" name="cancel" value="${_('Cancel')}"/>
             <input py:if="info.editable" type="submit" name="save" value="${_('Save')}"/>
+            <input type="submit" name="cancel" value="${_('Cancel')}"/>
           </div>
         </fieldset>
       </form>
@@ -118,7 +119,7 @@ $info.description</textarea>
           </fieldset>
         </form>
 
-        <form id="trac-repository_table" method="post" action="">
+        <form py:if="sorted_repos" id="trac-repository_table" method="post" action="">
           <table class="listing" id="trac-reposlist">
             <thead>
               <tr><th class="sel">&nbsp;</th>

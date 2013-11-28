@@ -39,15 +39,17 @@ class TracHTMLSanitizer(HTMLSanitizer):
         'background', 'background-attachment', 'background-color',
         'background-image', 'background-position', 'background-repeat',
         'border', 'border-bottom', 'border-bottom-color',
-        'border-bottom-style', 'border-bottom-width', 'border-collapse',
-        'border-color', 'border-left', 'border-left-color',
-        'border-left-style', 'border-left-width', 'border-right',
-        'border-right-color', 'border-right-style', 'border-right-width',
-        'border-spacing', 'border-style', 'border-top', 'border-top-color',
+        'border-bottom-style', 'border-bottom-left-radius',
+        'border-bottom-right-radius', 'border-bottom-width',
+        'border-collapse', 'border-color', 'border-left', 'border-left-color',
+        'border-left-style', 'border-left-width', 'border-radius',
+        'border-right', 'border-right-color', 'border-right-style',
+        'border-right-width', 'border-spacing', 'border-style', 'border-top',
+        'border-top-color', 'border-top-left-radius', 'border-top-right-radius',
         'border-top-style', 'border-top-width', 'border-width', 'bottom',
         'caption-side', 'clear', 'clip', 'color', 'content',
-        'counter-increment', 'counter-reset', 'cursor', 'direction', 'display',
-        'empty-cells', 'float', 'font', 'font-family', 'font-size',
+        'counter-increment', 'counter-reset', 'cursor', 'direction',
+        'display', 'empty-cells', 'float', 'font', 'font-family', 'font-size',
         'font-style', 'font-variant', 'font-weight', 'height', 'left',
         'letter-spacing', 'line-height', 'list-style', 'list-style-image',
         'list-style-position', 'list-style-type', 'margin', 'margin-bottom',
@@ -297,18 +299,20 @@ def plaintext(text, keeplinebreaks=True):
     return text
 
 
-def find_element(frag, attr=None, cls=None):
-    """Return the first element in the fragment having the given attribute or
-    class, using a preorder depth-first search.
+def find_element(frag, attr=None, cls=None, tag=None):
+    """Return the first element in the fragment having the given attribute,
+    class or tag, using a preorder depth-first search.
     """
     if isinstance(frag, Element):
         if attr is not None and attr in frag.attrib:
             return frag
         if cls is not None and cls in frag.attrib.get('class', '').split():
             return frag
+        if tag is not None and tag == frag.tag:
+            return frag
     if isinstance(frag, Fragment):
         for child in frag.children:
-            elt = find_element(child, attr, cls)
+            elt = find_element(child, attr, cls, tag)
             if elt is not None:
                 return elt
 

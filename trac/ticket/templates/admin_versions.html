@@ -8,15 +8,15 @@
   <xi:include href="admin.html" />
   <head>
     <title>Versions</title>
-    <script type="text/javascript">/*<![CDATA[*/
+    <script type="text/javascript">
       jQuery(document).ready(function($) {
         $("#releaseddate").datetimepicker();
       });
-    /*]]>*/</script>
+    </script>
   </head>
 
   <body>
-    <h2>Manage Versions</h2>
+    <h2>Manage Versions <span py:if="view == 'list'" class="trac-count">(${len(versions)})</span></h2>
 
     <py:choose test="view">
       <form py:when="'detail'" class="mod" id="modifyversion" method="post" action="">
@@ -24,11 +24,11 @@
           <legend>Modify Version:</legend>
           <div class="field">
             <label>Name:<br />
-              <input type="text" name="name" value="${version.name}" />
+              <input type="text" name="name" class="trac-focus" value="${version.name}" />
             </label>
           </div>
           <div class="field">
-            <label>Date:<br />
+            <label>Released:<br />
               <input type="text" id="releaseddate" name="time" size="${len(datetime_hint)}"
                      value="${format_datetime(version.time)}"
                      title="${_('Format: %(datehint)s', datehint=datetime_hint)}" />
@@ -47,8 +47,8 @@ $version.description</textarea>
             </fieldset>
           </div>
           <div class="buttons">
-            <input type="submit" name="cancel" value="${_('Cancel')}"/>
             <input type="submit" name="save" value="${_('Save')}"/>
+            <input type="submit" name="cancel" value="${_('Cancel')}"/>
           </div>
         </fieldset>
       </form>
@@ -96,8 +96,9 @@ $version.description</textarea>
               </tbody>
             </table>
             <div class="buttons">
-              <input type="submit" name="remove" value="${_('Remove selected items')}" />
               <input type="submit" name="apply" value="${_('Apply changes')}" />
+              <input type="submit" name="remove" value="${_('Remove selected items')}" />
+              <input type="submit" name="clear" value="${_('Clear default')}" />
             </div>
             <p class="help">
               You can remove all items from this list to completely hide this

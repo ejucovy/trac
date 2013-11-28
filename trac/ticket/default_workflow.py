@@ -226,7 +226,8 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
         this_action = self.actions[action]
         status = this_action['newstate']
         operations = this_action['operations']
-        current_owner = ticket._old.get('owner', ticket['owner'] or '(none)')
+        current_owner_or_empty = ticket._old.get('owner', ticket['owner'])
+        current_owner = current_owner_or_empty or '(none)'
         if not (Chrome(self.env).show_email_addresses
                 or 'EMAIL_VIEW' in req.perm(ticket.resource)):
             format_user = obfuscate_email_address
@@ -245,7 +246,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             id = 'action_%s_reassign_owner' % action
             selected_owner = req.args.get(id, req.authname)
 
-            if this_action.has_key('set_owner'):
+            if 'set_owner' in this_action:
                 owners = [x.strip() for x in
                           this_action['set_owner'].split(',')]
             elif self.config.getbool('ticket', 'restrict_owner'):
@@ -261,7 +262,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                                     owner=tag.input(type='text', id=id,
                                                     name=id, value=owner)))
                 hints.append(_("The owner will be changed from "
-                               "%(current_owner)s",
+                               "%(current_owner)s to the specified user",
                                current_owner=current_owner))
             elif len(owners) == 1:
                 owner = tag.input(type='hidden', id=id, name=id,
@@ -289,7 +290,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                            "to %(authname)s", current_owner=current_owner,
                            authname=req.authname))
         if 'set_resolution' in operations:
-            if this_action.has_key('set_resolution'):
+            if 'set_resolution' in this_action:
                 resolutions = [x.strip() for x in
                                this_action['set_resolution'].split(',')]
             else:
@@ -323,10 +324,16 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             control.append(_('as %(status)s ',
                              status= ticket._old.get('status',
                                                      ticket['status'])))
+            if len(operations) == 1:
+                hints.append(_("The owner will remain %(current_owner)s",
+                               current_owner=current_owner)
+                             if current_owner_or_empty else
+                             _("The ticket will remain with no owner"))
         else:
             if status != '*':
                 hints.append(_("Next status will be '%(name)s'", name=status))
-        return (this_action['name'], tag(*control), '. '.join(hints) + ".")
+        return (this_action['name'], tag(*control), '. '.join(hints) + '.'
+                if hints else '')
 
     def get_ticket_changes(self, req, ticket, action):
         this_action = self.actions[action]
