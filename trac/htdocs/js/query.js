@@ -210,8 +210,8 @@
         // Add the selector or text input for the actual filter value
         td = $("<td>").addClass("filter");
         if (property.type == "select") {
-          focusElement = createSelect(propertyName, property.options, true,
-                                      property.optgroups);
+          focusElement = createSelect(propertyName, property.options,
+                                      property.optional, property.optgroups);
         } else if ((property.type == "text") || (property.type == "id")
                    || (property.type == "textarea")) {
           focusElement = createText(propertyName, 42);
@@ -295,8 +295,8 @@
       var focusElement = null;
       switch (property.type) {
         case 'select':
-          focusElement = createSelect(inputName, property.options, true,
-                                      property.optgroups)
+          focusElement = createSelect(inputName, property.options,
+                                      property.optional, property.optgroups)
           td.append(focusElement);
           break;
         case 'radio':
@@ -393,19 +393,21 @@
 
     // Add a checkbox at the top of the column
     // to select every ticket in the group.
-    $("table.listing tr th.id").each(function() {
-      $(this).before(
-        $('<th class="batchmod_selector sel">').append(
-          $('<input type="checkbox" name="batchmod_toggleGroup" />').attr({
-            title: _("Toggle selection of all tickets shown in this group")
-          })));
-    });
+    if ($("table.listing tr td.id").length) {
+        $("table.listing tr th.id").each(function() {
+          $(this).before(
+            $('<th class="batchmod_selector sel">').append(
+              $('<input type="checkbox" name="batchmod_toggleGroup" />').attr({
+                title: _("Toggle selection of all tickets shown in this group")
+              })));
+        });
+    }
 
     // Add the click behavior for the group toggle.
     $("input[name='batchmod_toggleGroup']").click(function() {
       $("tr td.batchmod_selector input",
         $(this).closest("table.listing thead, table.listing tbody").next())
-        .prop("checked", this.checked);
+          .prop("checked", this.checked).change();
     });
     $("input[name='selected_ticket']").click(function() {
       var tbody = $(this).closest("table.listing tbody");
@@ -418,7 +420,9 @@
                "indeterminate": !(noneSelected || allSelected)});
     });
 
-    // At least one ticket must be selected to submit the batch.
+    // At least one ticket must be selected to submit the batch
+    $("#batchmod_submit").disableSubmit("input[name='selected_ticket']");
+
     $("form#batchmod_form").submit(function() {
       // First remove all existing validation messages.
       $(".batchmod_required").remove();
@@ -429,14 +433,6 @@
         selectedTix.push(this.value);
       });
       $("input[name=selected_tickets]").val(selectedTix);
-
-      // At least one ticket must be selected.
-      if (selectedTix.length === 0) {
-        $("#batchmod_submit")
-          .after('<span class="batchmod_required">' +
-                 'You must select at least one ticket.</span>');
-        valid = false;
-      }
 
       // Check that each radio property has something selected.
       getDisabledBatchOptions().each(function() {

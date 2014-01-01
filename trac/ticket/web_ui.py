@@ -43,6 +43,7 @@ from trac.util.datefmt import (
     format_date_or_datetime, from_utimestamp, get_date_format_hint,
     get_datetime_format_hint, parse_date, to_utimestamp, user_time, utc
 )
+from trac.util.html import to_fragment
 from trac.util.text import (
     exception_to_unicode, empty, obfuscate_email_address, shorten_line,
     to_unicode
@@ -1343,9 +1344,9 @@ class TicketModule(Component):
         except Exception, e:
             self.log.error("Failure sending notification on creation of "
                     "ticket #%s: %s", ticket.id, exception_to_unicode(e))
-            add_warning(req, _("The ticket has been created, but an error "
-                               "occurred while sending notifications: "
-                               "%(message)s", message=to_unicode(e)))
+            add_warning(req, tag_("The ticket has been created, but an error "
+                                  "occurred while sending notifications: "
+                                  "%(message)s", message=to_fragment(e)))
 
         # Redirect the user to the newly created ticket or add attachment
         ticketref=tag.a('#', ticket.id, href=req.href.ticket(ticket.id))
@@ -1389,7 +1390,7 @@ class TicketModule(Component):
                 add_warning(req, tag_("The %(change)s has been saved, but an "
                                       "error occurred while sending "
                                       "notifications: %(message)s",
-                                      change=change, message=to_unicode(e)))
+                                      change=change, message=to_fragment(e)))
                 fragment = ''
 
         # After saving the changes, apply the side-effects.
@@ -1449,16 +1450,22 @@ class TicketModule(Component):
 
     def _query_link(self, req, name, value, text=None):
         """Return a link to /query with the appropriate name and value"""
+        from trac.ticket.query import QueryModule
+        if not self.env.is_component_enabled(QueryModule):
+            return text or value
         default_query = self.ticketlink_query.lstrip('?')
         args = arg_list_to_args(parse_arg_list(default_query))
         args[name] = value
         if name == 'resolution':
             args['status'] = 'closed'
-        return tag.a(text or value, href=req.href.query(args))
+        if text or value:
+            return tag.a(text or value, href=req.href.query(args))
 
     def _query_link_words(self, context, name, value):
         """Splits a list of words and makes a query link to each separately"""
-        if not isinstance(value, basestring): # None or other non-splitable
+        from trac.ticket.query import QueryModule
+        if not (isinstance(value, basestring) and  # None or other non-splitable
+                self.env.is_component_enabled(QueryModule)):
             return value
         default_query = self.ticketlink_query.startswith('?') and \
                         self.ticketlink_query[1:] or self.ticketlink_query

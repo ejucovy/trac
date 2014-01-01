@@ -17,7 +17,7 @@ import tempfile
 import unittest
 
 from trac.core import Component, TracError, implements
-from trac.test import EnvironmentStub
+from trac.test import EnvironmentStub, locale_en
 from trac.tests import compat
 from trac.tests.contentgen import random_sentence
 from trac.util import create_file
@@ -34,6 +34,7 @@ class Request(object):
         self.chrome = {}
         for k, v in kwargs.items():
             setattr(self, k, v)
+
 
 class ChromeTestCase(unittest.TestCase):
 
@@ -319,28 +320,40 @@ class ChromeTestCase(unittest.TestCase):
         self.assertEqual('test1', items[0]['name'])
         self.assertEqual('test2', items[1]['name'])
 
+    def test_add_jquery_ui_timezone_list_has_z(self):
+        chrome = Chrome(self.env)
+
+        req = Request(href=Href('/trac.cgi'), lc_time='iso8601')
+        chrome.add_jquery_ui(req)
+        self.assertIn({'value': 'Z', 'label': '+00:00'},
+                      req.chrome['script_data']['jquery_ui']['timezone_list'])
+
+        req = Request(href=Href('/trac.cgi'), lc_time=locale_en)
+        chrome.add_jquery_ui(req)
+        self.assertIn({'value': 'Z', 'label': '+00:00'},
+                      req.chrome['script_data']['jquery_ui']['timezone_list'])
+
 
 class ChromeTestCase2(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub(path=tempfile.mkdtemp())
+        self.chrome = Chrome(self.env)
 
     def tearDown(self):
         shutil.rmtree(self.env.path)
 
     def test_malicious_filename_raises(self):
         req = Request(path_info='/chrome/site/../conf/trac.ini')
-        chrome = Chrome(self.env)
-        self.assertTrue(chrome.match_request(req))
-        self.assertRaises(TracError, chrome.process_request, req)
+        self.assertTrue(self.chrome.match_request(req))
+        self.assertRaises(TracError, self.chrome.process_request, req)
 
     def test_empty_shared_htdocs_dir_raises_file_not_found(self):
         req = Request(path_info='/chrome/shared/trac_logo.png')
-        chrome = Chrome(self.env)
-        self.assertEqual('', chrome.shared_htdocs_dir)
-        self.assertTrue(chrome.match_request(req))
+        self.assertEqual('', self.chrome.shared_htdocs_dir)
+        self.assertTrue(self.chrome.match_request(req))
         from trac.web.api import HTTPNotFound
-        self.assertRaises(HTTPNotFound, chrome.process_request, req)
+        self.assertRaises(HTTPNotFound, self.chrome.process_request, req)
 
     def test_shared_htdocs_dir_file_is_found(self):
         from trac.web.api import RequestDone
@@ -352,9 +365,8 @@ class ChromeTestCase2(unittest.TestCase):
         os.makedirs(shared_htdocs_dir)
         create_file(os.path.join(shared_htdocs_dir, 'trac_logo.png'))
         self.env.config.set('inherit', 'htdocs_dir', shared_htdocs_dir)
-        chrome = Chrome(self.env)
-        self.assertTrue(chrome.match_request(req))
-        self.assertRaises(RequestDone, chrome.process_request, req)
+        self.assertTrue(self.chrome.match_request(req))
+        self.assertRaises(RequestDone, self.chrome.process_request, req)
 
 
 def suite():

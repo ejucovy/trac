@@ -242,7 +242,14 @@ class EnvironmentStub(Environment):
                              defaults.
         :param enable: A list of component classes or name globs to
                        activate in the stub environment.
+        :param disable: A list of component classes or name globs to
+                        deactivate in the stub environment.
         """
+        if enable is not None and not isinstance(enable, (list, tuple)):
+            raise TypeError('Keyword argument "enable" must be a list')
+        if disable is not None and not isinstance(disable, (list, tuple)):
+            raise TypeError('Keyword argument "disable" must be a list')
+
         ComponentManager.__init__(self)
         Component.__init__(self)
 
@@ -285,7 +292,7 @@ class EnvironmentStub(Environment):
 
         init_global = False
         if self.global_databasemanager:
-            self.components[DatabaseManager] = global_databasemanager
+            self.components[DatabaseManager] = self.global_databasemanager
         else:
             self.config.set('trac', 'database', self.dburi)
             self.global_databasemanager = DatabaseManager(self)
@@ -424,6 +431,7 @@ def suite():
     import trac.wiki.tests
     import tracopt.mimeview.tests
     import tracopt.perm.tests
+    import tracopt.ticket.tests
     import tracopt.versioncontrol.git.tests
     import tracopt.versioncontrol.svn.tests
 
@@ -441,6 +449,7 @@ def suite():
     suite.addTest(trac.wiki.tests.suite())
     suite.addTest(tracopt.mimeview.tests.suite())
     suite.addTest(tracopt.perm.tests.suite())
+    suite.addTest(tracopt.ticket.tests.suite())
     suite.addTest(tracopt.versioncontrol.git.tests.suite())
     suite.addTest(tracopt.versioncontrol.svn.tests.suite())
     suite.addTest(doctest.DocTestSuite(sys.modules[__name__]))

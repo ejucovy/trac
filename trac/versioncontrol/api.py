@@ -351,26 +351,7 @@ class RepositoryManager(Component):
                 try:
                     repo = self.get_repository(reponame)
                     if repo:
-                        try:
-                            repo.sync()
-                        except Exception, e:
-                            add_warning(req, _("Failed to sync with "
-                                "repository \"%(name)s\": %(error)s; "
-                                "repository information may be out of date.  "
-                                "Look in the Trac log for more information "
-                                "including mitigation strategies.", 
-                                name=reponame or '(default)',
-                                error=to_unicode(e)))
-                            self.log.error("Failed to sync with repository "
-                                "\"%s\"; You may be able to reduce the impact "
-                                "of this issue by configuring [trac] "
-                                "repository_sync_per_request; see "
-                                "http://trac.edgewall.org/wiki/"
-                                "TracRepositoryAdmin#ExplicitSync for more "
-                                "detail.  Exception: %s",
-                                reponame or '(default)',
-                                exception_to_unicode(e, traceback=True))
-                            continue
+                        repo.sync()
                     else:
                         self.log.warning("Unable to find repository '%s' for "
                                          "synchronization",
@@ -382,6 +363,21 @@ class RepositoryManager(Component):
                           "(%(error)s). Look in the Trac log for more "
                           "information.", name=reponame or '(default)',
                           error=to_unicode(e)))
+                except Exception, e:
+                    add_warning(req,
+                        _("Failed to sync with repository \"%(name)s\": "
+                          "%(error)s; repository information may be out of "
+                          "date. Look in the Trac log for more information "
+                          "including mitigation strategies.",
+                          name=reponame or '(default)', error=to_unicode(e)))
+                    self.log.error(
+                        "Failed to sync with repository \"%s\"; You may be "
+                        "able to reduce the impact of this issue by "
+                        "configuring [trac] repository_sync_per_request; see "
+                        "http://trac.edgewall.org/wiki/TracRepositoryAdmin"
+                        "#ExplicitSync for more detail: %s",
+                        reponame or '(default)',
+                        exception_to_unicode(e, traceback=True))
                 self.log.info("Synchronized '%s' repository in %0.2f seconds",
                               reponame or '(default)', time.time() - start)
         return handler
@@ -659,8 +655,8 @@ class RepositoryManager(Component):
         The supported events are the names of the methods defined in the
         `IRepositoryChangeListener` interface.
         """
-        self.log.debug("Event %s on %s for changesets %r",
-                       event, reponame, revs)
+        self.log.debug("Event %s on repository '%s' for changesets %r",
+                       event, reponame or '(default)', revs)
 
         # Notify a repository by name, and all repositories with the same
         # base, or all repositories by base or by repository dir
@@ -695,8 +691,12 @@ class RepositoryManager(Component):
                         repos.sync_changeset(rev)
                         changeset = repos.get_changeset(rev)
                     except NoSuchChangeset:
+                        self.log.debug(
+                            "No changeset '%s' found in repository '%s'. "
+                            "Skipping subscribers for event %s",
+                            rev, repos.reponame or '(default)', event)
                         continue
-                self.log.debug("Event %s on %s for revision %s",
+                self.log.debug("Event %s on repository '%s' for revision '%s'",
                                event, repos.reponame or '(default)', rev)
                 for listener in self.change_listeners:
                     getattr(listener, event)(repos, changeset, *args)

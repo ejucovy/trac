@@ -29,6 +29,7 @@ import time
 import weakref
 
 from trac.util import terminate
+from trac.util.text import to_unicode
 
 __all__ = ['GitError', 'GitErrorSha', 'Storage', 'StorageFactory']
 
@@ -398,7 +399,7 @@ class Storage(object):
                 pass
         except IOError, e:
             raise GitError("Make sure the Git repository '%s' is readable: %s"
-                           % (git_dir, unicode(e)))
+                           % (git_dir, to_unicode(e)))
 
         self.repo = GitCore(git_dir, git_bin=git_bin, log=log)
 
@@ -416,24 +417,28 @@ class Storage(object):
     #
 
     # called by Storage.sync()
-    def __rev_cache_sync(self, youngest_rev=None):
+    def __rev_cache_sync(self):
         """invalidates revision db cache if necessary"""
+
+        branches = self._get_branches()
 
         with self.__rev_cache_lock:
             need_update = False
-            if self.__rev_cache:
-                last_youngest_rev = self.__rev_cache.youngest_rev
-                if last_youngest_rev != youngest_rev:
-                    self.logger.debug("invalidated caches (%s != %s)"
-                                      % (last_youngest_rev, youngest_rev))
-                    need_update = True
-            else:
+            if not self.__rev_cache:
                 need_update = True # almost NOOP
+            elif branches != self.__rev_cache.branch_dict:
+                self.logger.debug('invalidated caches for %d cause repository '
+                                  'has been changed', id(self))
+                need_update = True
 
             if need_update:
                 self.__rev_cache = None
-
             return need_update
+
+    def invalidate_rev_cache(self):
+        with self.__rev_cache_lock:
+            self.__rev_cache = None
+            self.logger.debug('invalidated caches for %d', id(self))
 
     def get_rev_cache(self):
         """Retrieve revision cache
@@ -892,9 +897,7 @@ class Storage(object):
         return self.get_commits().iterkeys()
 
     def sync(self):
-        rev = self.repo.rev_list('--max-count=1', '--topo-order', '--all') \
-                       .strip()
-        return self.__rev_cache_sync(rev)
+        return self.__rev_cache_sync()
 
     @contextmanager
     def get_historian(self, sha, base_path):

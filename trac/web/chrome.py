@@ -131,7 +131,7 @@ def add_link(req, rel, href, title=None, mimetype=None, classname=None,
     links.setdefault(rel, []).append(link)
     linkset.add(linkid)
 
-def add_stylesheet(req, filename, mimetype='text/css', media=None):
+def add_stylesheet(req, filename, mimetype='text/css', **attrs):
     """Add a link to a style sheet to the chrome info so that it gets included
     in the generated HTML page.
 
@@ -142,7 +142,7 @@ def add_stylesheet(req, filename, mimetype='text/css', media=None):
     `/chrome/` path.
     """
     href = _chrome_resource_path(req, filename)
-    add_link(req, 'stylesheet', href, mimetype=mimetype, media=media)
+    add_link(req, 'stylesheet', href, mimetype=mimetype, **attrs)
 
 def add_script(req, filename, mimetype='text/javascript', charset='utf-8',
                ie_if=None):
@@ -1081,9 +1081,9 @@ class Chrome(Component):
         return sep.join(all_cc)
 
     def authorinfo(self, req, author, email_map=None):
-        return self.format_author(req,
-                                  email_map and '@' not in author and
-                                  email_map.get(author) or author)
+        if email_map and '@' not in author and email_map.get(author):
+            author = email_map.get(author)
+        return tag.span(self.format_author(req, author), class_='trac-author')
 
     def get_email_map(self):
         """Get the email addresses of all known users."""
@@ -1097,12 +1097,14 @@ class Chrome(Component):
     _long_author_re = re.compile(r'.*<([^@]+)@[^@]+>\s*|([^@]+)@[^@]+')
 
     def authorinfo_short(self, author):
+        shortened = author
         if not author or author == 'anonymous':
-            return _("anonymous")
-        match = self._long_author_re.match(author)
-        if match:
-            return match.group(1) or match.group(2)
-        return author
+            shortened = _("anonymous")
+        else:
+            match = self._long_author_re.match(author)
+            if match:
+                shortened = match.group(1) or match.group(2)
+        return tag.span(shortened, class_='trac-author')
 
     def format_author(self, req, author):
         if not author or author == 'anonymous':
@@ -1149,8 +1151,10 @@ class Chrome(Component):
             'first_week_day': get_first_week_day_jquery_ui(req),
             'timepicker_separator': 'T' if is_iso8601 else ' ',
             'show_timezone': is_iso8601,
+            # default timezone must be included
             'timezone_list': get_timezone_list_jquery_ui() \
-                             if is_iso8601 else [],
+                             if is_iso8601 \
+                             else [{'value': 'Z', 'label': '+00:00'}],
             'timezone_iso8601': is_iso8601,
         })
         add_script(req, 'common/js/jquery-ui-i18n.js')

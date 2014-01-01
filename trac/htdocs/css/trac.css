@@ -82,6 +82,8 @@ span:target {
 
 /* Forms */
 input, textarea, select { margin: 2px }
+/* Avoid to inherit white-space of its parent element for IE 11, #11376 */
+textarea { white-space: pre-wrap }
 input, select { vertical-align: middle }
 input[type=button], input[type=submit], input[type=reset], button {
  *overflow: visible; /* Workaround too much margin on button in IE7 */
@@ -225,6 +227,26 @@ input[type=submit].trac-delete:hover {
 #metanav {
  padding-top: .3em;
 }
+#metanav form.trac-logout {
+ display: inline;
+ margin: 0;
+ padding: 0;
+}
+#metanav form.trac-logout button {
+ margin: 0;
+ padding: 0;
+ border: 0;
+ outline: 0;
+ background: transparent;
+ font-family: inherit;
+ font-size: inherit;
+ color: #b00;
+ border-bottom: 1px dotted #bbb;
+ cursor: pointer;
+}
+#metanav form.trac-logout button::-moz-focus-inner { border: 0; padding: 0 }
+#metanav form.trac-logout button:hover { background-color: #eee; color: #555 }
+#metanav form.trac-logout button:active { position: static }
 
 /* Main navigation bar */
 #mainnav {
@@ -541,6 +563,8 @@ table.wiki th {
  padding: .1em .25em;
  background-color: #f7f7f7;
 }
+table.wiki tbody tr.even { background-color: #fcfcfc }
+table.wiki tbody tr.odd { background-color: #f7f7f7 }
 
 .wikitoolbar {
  margin-top: 0.3em;
@@ -612,6 +636,7 @@ div.trac-grip {
  float: right;
  margin: .4em 0;
 }
+#attachments span.trac-author { font-style: italic; }
 
 /* Styles for tabular listings such as those used for displaying directory
    contents and report results. */

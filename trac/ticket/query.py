@@ -432,11 +432,12 @@ class Query(object):
 
         enum_columns = ('resolution', 'priority', 'severity')
         # Build the list of actual columns to query
-        cols = self.cols[:]
+        cols = []
         def add_cols(*args):
             for col in args:
                 if not col in cols:
                     cols.append(col)
+        add_cols(*self.cols)  # remove duplicated cols
         if self.group and not self.group in cols:
             add_cols(self.group)
         if self.rows:
@@ -1128,7 +1129,8 @@ class QueryModule(Component):
 
         properties = dict((name, dict((key, field[key])
                                       for key in ('type', 'label', 'options',
-                                                  'optgroups', 'format')
+                                                  'optgroups', 'optional',
+                                                  'format')
                                       if key in field))
                           for name, field in data['fields'].iteritems())
         add_script_data(req, properties=properties, modes=data['modes'])
