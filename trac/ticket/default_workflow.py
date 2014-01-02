@@ -242,9 +242,11 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             hints.append(_("Current state no longer exists"))
         if 'del_owner' in operations:
             hints.append(_("The ticket will be disowned"))
-        if 'set_owner' in operations:
+        if 'set_owner' in operations or 'may_set_owner' in operations:
             id = 'action_%s_reassign_owner' % action
-            selected_owner = req.args.get(id, req.authname)
+            default_owner = (req.authname if 'set_owner' in operations 
+                             else ticket._old.get('owner', ticket['owner'] or None))
+            selected_owner = req.args.get(id, default_owner)
 
             if 'set_owner' in this_action:
                 owners = [x.strip() for x in
@@ -256,11 +258,14 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             else:
                 owners = None
 
+            if owners is not None and 'may_set_owner' in operations:
+                if default_owner not in owners:
+                    owners.insert(0, default_owner)
+
             if owners == None:
-                owner = req.args.get(id, req.authname)
                 control.append(tag_('to %(owner)s',
                                     owner=tag.input(type='text', id=id,
-                                                    name=id, value=owner)))
+                                                    name=id, value=selected_owner)))
                 hints.append(_("The owner will be changed from "
                                "%(current_owner)s to the specified user",
                                current_owner=current_owner))
@@ -277,7 +282,8 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                                    selected_owner=formatted_owner))
             else:
                 control.append(tag_('to %(owner)s', owner=tag.select(
-                    [tag.option(x, value=x,
+                    [tag.option(x if x is not None else '(none)', 
+                                value=x if x is not None else '',
                                 selected=(x == selected_owner or None))
                      for x in owners],
                     id=id, name=id)))
@@ -355,7 +361,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                 updated['status'] = 'new'
             elif operation == 'del_owner':
                 updated['owner'] = ''
-            elif operation == 'set_owner':
+            elif operation in ('set_owner', 'may_set_owner'):
                 newowner = req.args.get('action_%s_reassign_owner' % action,
                                     this_action.get('set_owner', '').strip())
                 # If there was already an owner, we get a list, [new, old],
