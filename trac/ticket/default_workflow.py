@@ -246,12 +246,6 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
         if 'del_owner' in operations:
             hints.append(_("The ticket will be disowned"))
         if 'set_owner' in operations or 'may_set_owner' in operations:
-            id = 'action_%s_reassign_owner' % action
-            default_owner = (req.authname if 'set_owner' in operations 
-                             else ticket._old.get('owner',
-                                                  ticket['owner'] or None))
-            selected_owner = req.args.get(id, default_owner)
-
             if 'set_owner' in this_action:
                 owners = [x.strip() for x in
                           this_action['set_owner'].split(',')]
@@ -262,9 +256,15 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
             else:
                 owners = None
 
-            if owners is not None and 'may_set_owner' in operations:
-                if default_owner not in owners:
+            if 'set_owner' in operations:
+                default_owner = req.authname
+            else:
+                default_owner = ticket._old.get('owner',
+                                                ticket['owner'] or None)
+                if owners is not None and default_owner not in owners:
                     owners.insert(0, default_owner)
+            id = 'action_%s_reassign_owner' % action
+            selected_owner = req.args.get(id, default_owner)
 
             if owners is None:
                 control.append(
