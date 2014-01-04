@@ -127,6 +127,51 @@ class MaySetOwnerOperationDefaultRestrictOwnerNoOwner(FunctionalTwillTestCaseSet
             self._testenv.restart()
 
 
+class MaySetOwnerOperationDefaultRestrictOwnerAnonymous(FunctionalTwillTestCaseSetup):
+    def runTest(self):
+        """When using the workflow operation `may_set_owner` with restrict_owner=true,
+        the assign-to dropdown menu will contain a selected option "anonymous" if the
+        ticket is owned by "anonymous"."""
+        env = self._testenv.get_trac_environment()
+        env.config.set('ticket-workflow', 'reassign.operations',
+                       'may_set_owner')
+        restrict_owner = env.config.get("ticket", "restrict_owner")
+        env.config.set("ticket", "restrict_owner", "false")
+        env.config.save()
+
+        try:
+            self._testenv.restart()
+
+            ticket_id = self._tester.create_ticket("MaySetOwnerOperationDefaultRestrictOwnerAnonymous",
+                                                   info={'owner': "anonymous"})
+            env.config.set("ticket", "restrict_owner", "true")
+            env.config.save()
+            self._tester.logout()
+
+            from trac.perm import PermissionSystem
+            PermissionSystem(env).grant_permission('anonymous', 'TICKET_ADMIN')
+            
+            self._testenv.restart()
+
+            self._tester.go_to_ticket(ticket_id)
+            tc.find("The owner will be changed from anonymous")
+            tc.find('<option selected="selected" value="anonymous">anonymous</option>')
+
+        finally:
+            # Undo the config change to avoid causing problems for later
+            # tests.
+            env.config.set('ticket-workflow', 'resolve.operations',
+                           'set_resolution')
+            env.config.set("ticket", "restrict_owner", restrict_owner)
+            env.config.save()
+
+            from trac.perm import PermissionSystem
+            PermissionSystem(env).revoke_permission('anonymous', 'TICKET_ADMIN')
+
+            self._tester.login("admin")
+            self._testenv.restart()
+
+
 class SetOwnerOperationDefault(FunctionalTwillTestCaseSetup):
     def runTest(self):
         """When using the workflow operation `set_owner`, the assign-to field
@@ -252,6 +297,7 @@ def functionalSuite(suite=None):
     suite.addTest(MaySetOwnerOperationDefaultRestrictOwner())
     suite.addTest(MaySetOwnerOperationDefaultNoOwner())
     suite.addTest(MaySetOwnerOperationDefaultRestrictOwnerNoOwner())
+    suite.addTest(MaySetOwnerOperationDefaultRestrictOwnerAnonymous())
 
     return suite
 
