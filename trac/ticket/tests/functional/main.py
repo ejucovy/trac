@@ -2460,109 +2460,6 @@ class RegressionTestTicket11176(FunctionalTestCaseSetup):
             self._testenv.disable_authz_permpolicy()
 
 
-class RegressionTestTicket10018(FunctionalTwillTestCaseSetup):
-    def runTest(self):
-        """Test for regression of http://trac.edgewall.org/ticket/10018
-
-        When using the workflow operation `may_set_owner`, the assign-to field
-        will default to the ticket's current owner.
-        """
-        env = self._testenv.get_trac_environment()
-        env.config.set('ticket-workflow', 'reassign.operations',
-                       'may_set_owner')
-        restrict_owner = env.config.get("ticket", "restrict_owner")
-        env.config.set("ticket", "restrict_owner", "false")
-        env.config.save()
-
-        try:
-            self._testenv.restart()
-
-            ticket_id = self._tester.create_ticket("RegressionTestTicket10018", 
-                                                   info={'owner': "lammy"})
-            self._tester.go_to_ticket(ticket_id)
-            tc.find("The owner will be changed from lammy")
-            tc.find('<input type="text" name="action_reassign_reassign_owner" value="lammy" id="action_reassign_reassign_owner" />')
-        finally:
-            # Undo the config change to avoid causing problems for later
-            # tests.
-            env.config.set('ticket-workflow', 'resolve.operations',
-                           'set_resolution')
-            env.config.set("ticket", "restrict_owner", restrict_owner)
-            env.config.save()
-            self._testenv.restart()
-
-class RegressionTestTicket10018a(FunctionalTwillTestCaseSetup):
-    def runTest(self):
-        """Test for regression of http://trac.edgewall.org/ticket/10018
-
-        When using the workflow operation `set_owner`, the assign-to field
-        will default to the currently requesting username.
-        """
-        env = self._testenv.get_trac_environment()
-        env.config.set('ticket-workflow', 'reassign.operations',
-                       'set_owner')
-        restrict_owner = env.config.get("ticket", "restrict_owner")
-        env.config.set("ticket", "restrict_owner", "false")
-        env.config.save()
-
-        try:
-            self._testenv.restart()
-
-            ticket_id = self._tester.create_ticket("RegressionTestTicket10018a", 
-                                                   info={'owner': "lammy"})
-            self._tester.go_to_ticket(ticket_id)
-            tc.find("The owner will be changed from lammy")
-            # The logged-in user is "admin", and the set_owner operation will default
-            # to changing the owner to the logged-in user
-            tc.find('<input type="text" name="action_reassign_reassign_owner" value="admin" id="action_reassign_reassign_owner" />')
-        finally:
-            # Undo the config change to avoid causing problems for later
-            # tests.
-            env.config.set('ticket-workflow', 'resolve.operations',
-                           'set_resolution')
-            env.config.set("ticket", "restrict_owner", restrict_owner)
-            env.config.save()
-            self._testenv.restart()
-
-class RegressionTestTicket10018b(FunctionalTwillTestCaseSetup):
-    def runTest(self):
-        """Test for regression of http://trac.edgewall.org/ticket/10018
-
-        When using the workflow operation `may_set_owner` with restrict_owner=true,
-        the assign-to field will default to the ticket's current owner, even if the
-        current owner is not otherwise known to the Trac environment.
-        """
-        env = self._testenv.get_trac_environment()
-        env.config.set('ticket-workflow', 'reassign.operations',
-                       'may_set_owner')
-        restrict_owner = env.config.get("ticket", "restrict_owner")
-        env.config.set("ticket", "restrict_owner", "false")
-        env.config.save()
-
-        try:
-            self._testenv.restart()
-
-            ticket_id = self._tester.create_ticket("RegressionTestTicket10018b", 
-                                                   info={'owner': "lammy"})
-            env.config.set("ticket", "restrict_owner", "true")
-            env.config.save()
-            self._tester.go_to_ticket(ticket_id)
-            tc.find("The owner will be changed from lammy")
-            tc.find('<option selected="selected" value="lammy">lammy</option>')
-
-            known_usernames = [i[0] for i in env.get_known_users()]
-            assert "lammy" not in known_usernames
-
-        finally:
-            # Undo the config change to avoid causing problems for later
-            # tests.
-            env.config.set('ticket-workflow', 'resolve.operations',
-                           'set_resolution')
-            env.config.set("ticket", "restrict_owner", restrict_owner)
-            env.config.save()
-            self._testenv.restart()
-
-
 def functionalSuite(suite=None):
     if not suite:
         import trac.tests.functional
@@ -2688,10 +2585,6 @@ def functionalSuite(suite=None):
         suite.addTest(RegressionTestTicket11176())
     else:
         print "SKIP: RegressionTestTicket11176 (ConfigObj not installed)"
-
-    suite.addTest(RegressionTestTicket10018())
-    suite.addTest(RegressionTestTicket10018a())
-    suite.addTest(RegressionTestTicket10018b())
 
     return suite
 
