@@ -258,11 +258,14 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
 
             if 'set_owner' in operations:
                 default_owner = req.authname
-            else:
+            elif 'may_set_owner' in operations:
                 default_owner = ticket._old.get('owner',
                                                 ticket['owner'] or None)
                 if owners is not None and default_owner not in owners:
                     owners.insert(0, default_owner)
+            else:
+                raise AssertionError(operations)
+
             id = 'action_%s_reassign_owner' % action
             selected_owner = req.args.get(id, default_owner)
 
