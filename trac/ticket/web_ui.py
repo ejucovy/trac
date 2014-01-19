@@ -728,6 +728,8 @@ class TicketModule(Component):
         prevnext_nav(req, _("Previous Ticket"), _("Next Ticket"),
                      _("Back to Query"))
 
+        from trac.ticket.api import render_field_to_edit_form
+        data['render_field_to_edit_form'] = render_field_to_edit_form
         return 'ticket.html', data, None
 
     def _get_prefs(self, req):

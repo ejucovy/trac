@@ -31,6 +31,72 @@ from trac.util.text import shorten_line
 from trac.util.translation import _, N_, gettext
 from trac.wiki import IWikiSyntaxProvider, WikiParser
 
+def render_field_to_edit_form(ticket, field):
+    """
+    Returns Genshi markup for the provided field that can be inserted
+    into a Modify Ticket form or an Action Controller.
+
+    This does not return any label or hints for the rendered field.
+    """
+    if not field:
+        return None
+    current_value = ticket.get_value_or_default(field['name'])
+    html_id = "field-%s" % field['name']
+    html_name = "field_%s" % field['name']
+
+    if field['type'] == "select":
+        options = []
+        if field['optional']:
+            options.append(tag.option())
+        for option in field['options']:
+            options.append(tag.option(option, value=option, 
+                                      selected=current_value==option or None))
+        for optgroup in field.get('optgroups', []):
+            if optgroup['options']:
+                options.append(tag.optgroup([
+                            tag.option(option, value=option, 
+                                       selected=current_value==option or None)
+                            for option in optgroup['options']], label=optgroup['label']))
+        control = tag.select(options, id=html_id, name=html_name)
+        return control
+    if field['type'] == "textarea":
+        return tag.textarea(current_value, id=html_id, name=html_name,
+                            cols=field['width'], rows=field['height'],
+                            class_=("wikitext " if field['format'] == "wiki" else '') + "trac-resizable")
+    if field['type'] == "checkbox":
+        return tag.span([tag.input(type="checkbox", id=html_id, name=html_name, 
+                                      checked=current_value=="1" or None, value="1"),
+                         tag.input(type="hidden", name="field_checkbox_%s" % field['name'],
+                                   value="1")])
+    if field['type'] == "radio":
+        options = []
+        for idx, option in enumerate(field['options']):
+            options.append(tag.label(option,
+                                     tag.input(type="radio", name=html_name, value=option,
+                                               checked=current_value==option or None)))
+        return tag(*options)
+    if field['type'] == "time":
+        return tag.input(type="text", id=html_id, name=html_name,
+                         title=field['format_hint'],
+                         value=field['edit'], class_="trac-%spicker" % field['format'])
+
+    # Otherwise, it's a text input field.
+
+    # But first .. special case for Cc: field
+    if "cc_entry" in field:
+        return tag.span([tag.em(field['cc_entry']),
+                         tag.input(type="checkbox", id="field-cc", name="cc_update",
+                                   title=_("This checkbox allows you to add or remove yourself from the CC list."),
+                                   checked=field.get("cc_update") or None)])
+
+    # And a second special case for Cc: field, when TICKET_EDIT_CC is allowed
+    if field['name'] == "cc":
+        return tag.span(tag.input(type="text", id=html_id, name=html_name,
+                                  title=_("Space or comma delimited email addresses and usernames are accepted."),
+                                  value=current_value))
+
+    # All the other text input fields:
+    return tag.input(type="text", id=html_id, name=html_name, value=current_value)
 
 class TicketFieldList(list):
     """Improved ticket field list, allowing access by name."""
