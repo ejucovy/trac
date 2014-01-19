@@ -35,6 +35,7 @@ from trac.resource import (
 )
 from trac.search import ISearchSource, search_to_sql, shorten_result
 from trac.ticket.api import TicketSystem, ITicketManipulator
+from trac.ticket.api import render_field_to_edit_form
 from trac.ticket.model import Milestone, Ticket, group_milestones
 from trac.ticket.notification import TicketNotifyEmail
 from trac.timeline.api import ITimelineEventProvider
@@ -523,6 +524,9 @@ class TicketModule(Component):
         Chrome(self.env).add_wiki_toolbars(req)
         Chrome(self.env).add_auto_preview(req)
         Chrome(self.env).add_jquery_ui(req)
+
+        data['render_field_to_edit_form'] = render_field_to_edit_form
+
         return 'ticket.html', data, None
 
     def _process_ticket_request(self, req):
@@ -728,7 +732,6 @@ class TicketModule(Component):
         prevnext_nav(req, _("Previous Ticket"), _("Next Ticket"),
                      _("Back to Query"))
 
-        from trac.ticket.api import render_field_to_edit_form
         data['render_field_to_edit_form'] = render_field_to_edit_form
         return 'ticket.html', data, None
 
