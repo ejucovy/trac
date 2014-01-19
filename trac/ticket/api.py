@@ -61,7 +61,7 @@ def render_field_to_edit_form(ticket, field):
         return control
     if field['type'] == "textarea":
         return tag.textarea(current_value, id=html_id, name=html_name,
-                            cols=field['width'], rows=field['height'],
+                            cols=field.get('width') or None, rows=field.get('height') or None,
                             class_=("wikitext " if field['format'] == "wiki" else '') + "trac-resizable")
     if field['type'] == "checkbox":
         return tag.span([tag.input(type="checkbox", id=html_id, name=html_name, 
