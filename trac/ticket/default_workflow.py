@@ -250,6 +250,9 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
         if 'del_owner' in operations:
             hints.append(_("The ticket will be disowned"))
         if 'set_owner' in operations or 'may_set_owner' in operations:
+            owner_field = [field for field in prepared_fields 
+                           if field['name'] == "owner"][0]
+
             if 'set_owner' in operations:
                 default_owner = req.authname
             elif 'may_set_owner' in operations:

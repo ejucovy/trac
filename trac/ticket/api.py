@@ -27,12 +27,13 @@ from trac.core import *
 from trac.perm import IPermissionRequestor, PermissionCache, PermissionSystem
 from trac.resource import IResourceManager
 from trac.util import Ranges, as_int
-from trac.util.text import shorten_line
+from trac.util.text import shorten_line, empty
 from trac.util.translation import _, N_, gettext
 from trac.wiki import IWikiSyntaxProvider, WikiParser
 
 def render_field_to_edit_form(ticket, field, 
                               restrict_to=None,
+                              default_value=empty,
                               html_name=None, html_id=None):
     """
     Returns Genshi markup for the provided field that can be inserted
@@ -42,7 +43,10 @@ def render_field_to_edit_form(ticket, field,
     """
     if not field:
         return None
-    current_value = ticket.get_value_or_default(field['name'])
+    if default_value is empty:
+        current_value = ticket.get_value_or_default(field['name'])
+    else:
+        current_value = default_value
     html_id = html_id or "field-%s" % field['name']
     html_name = html_name or "field_%s" % field['name']
 
