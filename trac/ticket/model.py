@@ -200,7 +200,7 @@ class Ticket(object):
         """Return the value of a field or the default value if it is undefined
         """
         try:
-            value = self.values[name]
+            value = self._old.get(name, self.values[name])
             return value if value is not empty else self.get_default(name)
         except KeyError:
             pass
