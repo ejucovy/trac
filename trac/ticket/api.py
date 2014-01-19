@@ -44,7 +44,13 @@ def render_field_to_edit_form(ticket, field):
     html_id = "field-%s" % field['name']
     html_name = "field_%s" % field['name']
 
-    if field['type'] == "select":
+    # The "resolution" field has type "radio", which allows the Query system
+    # to render its choices as a (multi-select) series of checkboxes, whereas 
+    # the Query system renders fields of type "select" as a (single-select) dropdown.
+    # However, when rendering the actual UI element for changing resolution in a form, 
+    # we want to treat it as a dropdown menu (i.e. type="select") instead.
+    # Hence the strange special-case logic here:
+    if field['type'] == "select" or field['name'] == "resolution":
         options = []
         if field['optional']:
             options.append(tag.option())
