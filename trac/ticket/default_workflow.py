@@ -28,6 +28,7 @@ from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
 from trac.perm import PermissionSystem
 from trac.ticket.api import ITicketActionController, TicketSystem
+from trac.ticket.api import render_field_to_edit_form
 from trac.ticket.model import Resolution
 from trac.util.text import obfuscate_email_address
 from trac.util.translation import _, tag_, cleandoc_
@@ -226,6 +227,9 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
 
         self.log.debug('render_ticket_action_control: action "%s"' % action)
 
+        from trac.ticket.web_ui import TicketModule
+        prepared_fields = TicketModule(self.env)._prepare_fields(req, ticket)
+
         this_action = self.actions[action]
         status = this_action['newstate']
         operations = this_action['operations']
@@ -305,6 +309,8 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                            "to %(authname)s", current_owner=current_owner,
                            authname=req.authname))
         if 'set_resolution' in operations:
+            resolution_field = [field for field in prepared_fields 
+                                if field['name'] == "resolution"][0]
             if 'set_resolution' in this_action:
                 resolutions = [x.strip() for x in
                                this_action['set_resolution'].split(',')]
@@ -327,11 +333,9 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                 selected_option = req.args.get(id,
                         TicketSystem(self.env).default_resolution)
                 control.append(tag_('as %(resolution)s',
-                                    resolution=tag.select(
-                    [tag.option(x, value=x,
-                                selected=(x == selected_option or None))
-                     for x in resolutions],
-                    id=id, name=id)))
+                                    resolution=render_field_to_edit_form(
+                            ticket, resolution_field, restrict_to=resolutions,
+                            html_name=id, html_id=id)))
                 hints.append(_("The resolution will be set"))
         if 'del_resolution' in operations:
             hints.append(_("The resolution will be deleted"))

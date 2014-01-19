@@ -31,7 +31,9 @@ from trac.util.text import shorten_line
 from trac.util.translation import _, N_, gettext
 from trac.wiki import IWikiSyntaxProvider, WikiParser
 
-def render_field_to_edit_form(ticket, field):
+def render_field_to_edit_form(ticket, field, 
+                              restrict_to=None,
+                              html_name=None, html_id=None):
     """
     Returns Genshi markup for the provided field that can be inserted
     into a Modify Ticket form or an Action Controller.
@@ -41,8 +43,8 @@ def render_field_to_edit_form(ticket, field):
     if not field:
         return None
     current_value = ticket.get_value_or_default(field['name'])
-    html_id = "field-%s" % field['name']
-    html_name = "field_%s" % field['name']
+    html_id = html_id or "field-%s" % field['name']
+    html_name = html_name or "field_%s" % field['name']
 
     # The "resolution" field has type "radio", which allows the Query system
     # to render its choices as a (multi-select) series of checkboxes, whereas 
@@ -53,8 +55,11 @@ def render_field_to_edit_form(ticket, field):
     if field['type'] == "select" or field['name'] == "resolution":
         options = []
         if field['optional']:
-            options.append(tag.option())
+            if not restrict_to or None in restrict_to:
+                options.append(tag.option())
         for option in field['options']:
+            if restrict_to and option not in restrict_to:
+                continue
             options.append(tag.option(option, value=option, 
                                       selected=current_value==option or None))
         for optgroup in field.get('optgroups', []):
