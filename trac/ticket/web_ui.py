@@ -1509,16 +1509,17 @@ class TicketModule(Component):
                         field['skip'] = False
                         owner_field = field
             elif name == 'milestone':
-                milestones = [Milestone(self.env, opt)
-                              for opt in field['options']]
-                milestones = [m for m in milestones
-                              if 'MILESTONE_VIEW' in req.perm(m.resource)]
-                groups = group_milestones(milestones, ticket.exists
-                    and 'TICKET_ADMIN' in req.perm(ticket.resource))
-                field['options'] = []
-                field['optgroups'] = [
-                    {'label': label, 'options': [m.name for m in milestones]}
-                    for (label, milestones) in groups]
+                TicketSystem(self.env).prepare_field_for_rendering(field, req.perm)
+                # Non-administrators are not allowed to move existing tickets
+                # into closed milestones, and nobody is allowed to move new tickets
+                # into closed milestones.  The last element of the field's `optgroups` 
+                # list is its closed milestones, so we'll just remove it if the
+                # conditions are not met.
+                if ticket.exists and 'TICKET_ADMIN' in req.perm(ticket.resource):
+                    pass
+                else:
+                    field['optgroups'].pop(-1)
+
                 milestone = Resource('milestone', ticket[name])
                 field['rendered'] = render_resource_link(self.env, context,
                                                          milestone, 'compact')

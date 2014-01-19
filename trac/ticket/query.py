@@ -736,15 +736,7 @@ class Query(object):
                 field = field.copy()
                 field['options'].insert(0, '$USER')
             if name == 'milestone':
-                milestones = [Milestone(self.env, opt)
-                              for opt in field['options']]
-                milestones = [m for m in milestones
-                              if 'MILESTONE_VIEW' in context.perm(m.resource)]
-                groups = group_milestones(milestones, True)
-                field['options'] = []
-                field['optgroups'] = [
-                    {'label': label, 'options': [m.name for m in milestones]}
-                    for (label, milestones) in groups]
+                TicketSystem(self.env).prepare_field_for_rendering(field, context.perm)
             fields[name] = field
 
         groups = {}

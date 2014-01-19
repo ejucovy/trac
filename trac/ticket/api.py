@@ -385,6 +385,32 @@ class TicketSystem(Component):
         """Invalidate ticket field cache."""
         del self.fields
 
+    def prepare_field_for_rendering(self, field, perm):
+        from trac.ticket import model
+
+        if field['name'] == 'milestone':
+            # The ticket system returns an unrestricted list of milestones.
+            # However, for use in a front-end context, we need to regenerate
+            # the list of milestones to account for the requesting user's 
+            # permissions, which may prevent the user from seeing some or all 
+            # milestones.
+            field['options'] = []
+            milestones = [m for m in model.Milestone.select(self.env)
+                          if 'MILESTONE_VIEW' in perm(m.resource)]
+            
+            # We group the milestones into open, due, and closed categories.
+            # The consumer of this field is then responsible for excluding
+            # any categories that should not be available in its context,
+            # e.g. disallowing non-administrators from assigning tickets
+            # into closed milestones.
+            groups = model.group_milestones(milestones, True)
+            field['optgroups'] = [
+                {'label': label, 'options': [m.name for m in milestones]}
+                for (label, milestones) in groups]
+
+        return field
+
+
     @cached
     def fields(self, db):
         """Return the list of fields available for tickets."""
@@ -431,6 +457,7 @@ class TicketSystem(Component):
                 field['optional'] = True
             elif name in self.optional_fields:
                 field['optional'] = True
+
             fields.append(field)
 
         # Advanced text fields
