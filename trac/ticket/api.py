@@ -385,7 +385,7 @@ class TicketSystem(Component):
         """Invalidate ticket field cache."""
         del self.fields
 
-    def prepare_field_for_rendering(self, field, perm):
+    def prepare_field_for_rendering(self, field, perm, ticket=None):
         from trac.ticket import model
 
         if field['name'] == 'milestone':
@@ -408,6 +408,8 @@ class TicketSystem(Component):
                 {'label': label, 'options': [m.name for m in milestones]}
                 for (label, milestones) in groups]
 
+        if field['name'] == 'owner':
+            self.eventually_restrict_owner(field, ticket)
         return field
 
 

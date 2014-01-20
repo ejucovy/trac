@@ -1488,6 +1488,8 @@ class TicketModule(Component):
         fields = []
         owner_field = None
         for field in ticket.fields:
+            TicketSystem(self.env).prepare_field_for_rendering(field, req.perm, ticket)
+
             name = field['name']
             type_ = field['type']
 
@@ -1500,8 +1502,6 @@ class TicketModule(Component):
                         'resolution', 'time', 'changetime'):
                 field['skip'] = True
             elif name == 'owner':
-                TicketSystem(self.env).eventually_restrict_owner(field, ticket)
-                type_ = field['type']
                 field['skip'] = True
                 if not ticket.exists:
                     field['label'] = _("Owner")
@@ -1509,7 +1509,6 @@ class TicketModule(Component):
                         field['skip'] = False
                         owner_field = field
             elif name == 'milestone':
-                TicketSystem(self.env).prepare_field_for_rendering(field, req.perm)
                 # Non-administrators are not allowed to move existing tickets
                 # into closed milestones, and nobody is allowed to move new tickets
                 # into closed milestones.  The last element of the field's `optgroups` 

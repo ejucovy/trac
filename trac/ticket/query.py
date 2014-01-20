@@ -730,13 +730,12 @@ class Query(object):
 
         fields = {'id': {'type': 'id', 'label': _("Ticket")}}
         for field in self.fields:
+            TicketSystem(self.env).prepare_field_for_rendering(field, context.perm)
             name = field['name']
             if name == 'owner' and field['type'] == 'select':
                 # Make $USER work when restrict_owner = true
                 field = field.copy()
                 field['options'].insert(0, '$USER')
-            if name == 'milestone':
-                TicketSystem(self.env).prepare_field_for_rendering(field, context.perm)
             fields[name] = field
 
         groups = {}
@@ -1074,9 +1073,6 @@ class QueryModule(Component):
                 add_warning(req, error)
 
         context = web_context(req, 'query')
-        owner_field = query.fields.by_name('owner', None)
-        if owner_field:
-            TicketSystem(self.env).eventually_restrict_owner(owner_field)
         data = query.template_data(context, tickets, orig_list, orig_time, req)
 
         req.session['query_href'] = query.get_href(context.href)
