@@ -1519,7 +1519,7 @@ class TicketModule(Component):
                 else:
                     field['optgroups'].pop(-1)
 
-                milestone = Resource('milestone', ticket[name])
+                milestone = Resource('milestone', ticket['milestone'])
                 field['rendered'] = render_resource_link(self.env, context,
                                                          milestone, 'compact')
             elif name == 'cc':
